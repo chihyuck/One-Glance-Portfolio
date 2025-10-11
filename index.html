@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My Asset Portfolio</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root { --bg:#0f172a; --card:#111827; --muted:#94a3b8; --text:#e5e7eb; --accent:#6366f1; }
+    *{box-sizing:border-box}
+    body{margin:0; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial; background:var(--bg); color:var(--text)}
+    .wrap{max-width:980px; margin:40px auto; padding:0 16px}
+    .title{font-weight:600; font-size:28px; margin:0 0 6px}
+    .sub{color:var(--muted); margin:0 0 24px}
+    .grid{display:grid; gap:16px}
+    @media (min-width:900px){ .grid{grid-template-columns:1fr 1fr} }
+    .card{background:var(--card); border:1px solid #1f2937; border-radius:16px; padding:16px; box-shadow:0 10px 24px rgba(0,0,0,.25)}
+    label{display:block; font-size:14px; color:var(--muted); margin-bottom:6px}
+    input,select{width:100%; padding:12px 12px; border-radius:12px; border:1px solid #334155; background:#0b1220; color:var(--text); outline:none}
+    input:focus,select:focus{border-color:var(--accent)}
+    .row{display:grid; grid-template-columns:1fr 1fr 1fr 120px; gap:10px}
+    .btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 14px; border-radius:12px; border:1px solid #334155; background:#0b1220; color:var(--text); cursor:pointer}
+    .btn:hover{border-color:var(--accent)}
+    .btn.primary{background:linear-gradient(135deg, #4f46e5, #06b6d4); border-color:transparent}
+    table{width:100%; border-collapse:separate; border-spacing:0; overflow:hidden; border-radius:12px; border:1px solid #1f2937}
+    thead th{background:#0b1220; color:var(--muted); text-align:left; padding:12px; font-weight:600; position:sticky; top:0}
+    tbody td{padding:12px; border-top:1px solid #1f2937}
+    .right{text-align:right}
+    .muted{color:var(--muted)}
+    .tools{display:flex; flex-wrap:wrap; gap:8px}
+    .pill{display:inline-flex; align-items:center; gap:6px; background:#0b1220; border:1px solid #334155; color:var(--muted); padding:8px 12px; border-radius:999px; font-size:13px}
+    .footer{margin-top:8px; color:var(--muted); font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1 class="title">My Asset Portfolio</h1>
+    <p class="sub">Add assets below. Your data is saved in your browser (local only). Use Export/Import to move it to another device.</p>
+
+    <div class="grid">
+      <!-- Input Card -->
+      <div class="card">
+        <h2 style="margin:0 0 12px;font-size:18px">Add Asset</h2>
+        <div class="row" style="margin-bottom:12px">
+          <div>
+            <label for="name">Asset</label>
+            <input id="name" placeholder="e.g., Apple Stock" />
+          </div>
+          <div>
+            <label for="category">Category</label>
+            <select id="category">
+              <option value="Stocks">Stocks</option>
+              <option value="Bonds">Bonds</option>
+              <option value="Cash">Cash</option>
+              <option value="Crypto">Crypto</option>
+              <option value="Real Estate">Real Estate</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label for="value">Value</label>
+            <input id="value" type="number" min="0" step="0.01" placeholder="e.g., 1500.00" />
+          </div>
+          <div style="display:flex; align-items:end">
+            <button class="btn primary" id="addBtn" title="Add asset">＋ Add</button>
+          </div>
+        </div>
+        <div class="tools">
+          <button class="btn" id="exportBtn">Export JSON</button>
+          <label class="pill" for="importFile" style="cursor:pointer">
+            Import JSON <input id="importFile" type="file" accept="application/json" style="display:none">
+          </label>
+          <button class="btn" id="clearBtn">Clear All</button>
+        </div>
+        <div class="footer">Tip: Export regularly so you can restore your data anywhere.</div>
+      </div>
+
+      <!-- Chart Card -->
+      <div class="card">
+        <h2 style="margin:0 0 12px;font-size:18px">Allocation</h2>
+        <canvas id="pie" height="220"></canvas>
+        <div style="margin-top:10px" class="muted">Pie shows totals grouped by category.</div>
+      </div>
+    </div>
+
+    <!-- Table Card -->
+    <div class="card" style="margin-top:16px">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px">
+        <h2 style="margin:0;font-size:18px">Assets</h2>
+        <div class="pill">Total: <span id="total">$0.00</span></div>
+      </div>
+      <div style="overflow:auto">
+        <table id="assetTable">
+          <thead>
+            <tr>
+              <th>Asset</th>
+              <th>Category</th>
+              <th class="right">Value</th>
+              <th class="right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORE_KEY = "my_portfolio_assets_v1";
+    const $ = (id) => document.getElementById(id);
+    const fmt = (n) => n.toLocaleString(undefined, {style:"currency", currency:"USD"});
+
+    let assets = [];
+
+    function load() {
+      try {
+        const raw = localStorage.getItem(STORE_KEY);
+        assets = raw ? JSON.parse(raw) : [];
+      } catch {
+        assets = [];
+      }
+    }
+
+    function save() {
+      localStorage.setItem(STORE_KEY, JSON.stringify(assets));
+    }
+
+    function render() {
+      // table
+      const tb = $("tbody");
+      tb.innerHTML = "";
+      let total = 0;
+      assets.forEach((a, i) => {
+        total += Number(a.value) || 0;
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${escapeHtml(a.name)}</td>
+          <td class="muted">${escapeHtml(a.category)}</td>
+          <td class="right">${fmt(Number(a.value)||0)}</td>
+          <td class="right">
+            <button class="btn" data-edit="${i}">Edit</button>
+            <button class="btn" data-del="${i}">Delete</button>
+          </td>`;
+        tb.appendChild(tr);
+      });
+      $("total").textContent = fmt(total);
+
+      // chart
+      const byCat = {};
+      assets.forEach(a => {
+        const v = Number(a.value) || 0;
+        byCat[a.category] = (byCat[a.category] || 0) + v;
+      });
+      const labels = Object.keys(byCat);
+      const data = Object.values(byCat);
+      updatePie(labels, data);
+    }
+
+    function escapeHtml(s) {
+      return String(s ?? "").replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+
+    $("addBtn").addEventListener("click", () => {
+      const name = $("name").value.trim();
+      const category = $("category").value;
+      const value = Number($("value").value);
+      if (!name || isNaN(value) || value < 0) {
+        alert("Please enter a valid name and a non-negative value.");
+        return;
+      }
+      assets.push({ name, category, value });
+      save(); render();
+      $("name").value = ""; $("value").value = "";
+      $("name").focus();
+    });
+
+    $("tbody").addEventListener("click", (e) => {
+      const t = e.target;
+      const del = t.getAttribute("data-del");
+      const edit = t.getAttribute("data-edit");
+      if (del !== null) {
+        const i = Number(del);
+        if (confirm(`Delete "${assets[i].name}"?`)) {
+          assets.splice(i, 1);
+          save(); render();
+        }
+      }
+      if (edit !== null) {
+        const i = Number(edit);
+        const curr = assets[i];
+        const name = prompt("Asset name:", curr.name);
+        if (name === null) return;
+        const cat = prompt("Category:", curr.category);
+        if (cat === null) return;
+        const val = prompt("Value (number):", curr.value);
+        if (val === null) return;
+        const num = Number(val);
+        if (isNaN(num) || num < 0) { alert("Invalid value."); return; }
+        assets[i] = { name: name.trim(), category: cat.trim() || "Other", value: num };
+        save(); render();
+      }
+    });
+
+    $("exportBtn").addEventListener("click", () => {
+      const blob = new Blob([JSON.stringify(assets, null, 2)], {type:"application/json"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "portfolio.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    $("importFile").addEventListener("change", (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          if (!Array.isArray(data)) throw new Error("Bad format");
+          assets = data.map(x => ({
+            name: String(x.name ?? ""),
+            category: String(x.category ?? "Other"),
+            value: Number(x.value ?? 0)
+          }));
+          save(); render();
+        } catch {
+          alert("Invalid JSON file.");
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = "";
+    });
+
+    $("clearBtn").addEventListener("click", () => {
+      if (confirm("This will remove all assets on this device.")) {
+        assets = []; save(); render();
+      }
+    });
+
+    // Chart.js pie
+    let pieChart = null;
+    function updatePie(labels, values) {
+      const ctx = $("pie").getContext("2d");
+      if (pieChart) pieChart.destroy();
+      pieChart = new Chart(ctx, {
+        type: "pie",
+        data: {
+          labels,
+          datasets: [{ data: values }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { position: "bottom", labels:{ color:"#e5e7eb" } },
+            tooltip: { callbacks: { label: (ctx) => {
+              const val = ctx.raw ?? 0;
+              const total = values.reduce((a,b)=>a+b,0) || 1;
+              const pct = (val/total*100).toFixed(1);
+              return `${ctx.label}: ${fmt(val)} (${pct}%)`;
+            }}}
+          }
+        }
+      });
+    }
+
+    // boot
+    load(); render();
+  </script>
+</body>
+</html>
