@@ -62,8 +62,11 @@
         <h2 style="margin:0 0 12px;font-size:18px">Add Asset</h2>
         <div class="row" style="margin-bottom:12px">
           <div>
-            <label for="name">Asset</label>
-            <input id="name" placeholder="e.g., Apple Stock" />
+           <label for="name">Asset</label>
+<div class="autocomplete-wrap">
+  <input id="name" placeholder="e.g., Apple" autocomplete="off" />
+  <div id="suggestions" class="suggest-box"></div>
+</div>
           </div>
           <div>
             <label for="category">Category</label>
@@ -282,10 +285,148 @@
         }
       });
     }
+// === Popular assets for suggestions ===
+// Logo source uses Clearbit: https://logo.clearbit.com/<domain>
+// (You can add/remove items freely.)
+const POPULAR_ASSETS = [
+  { name:"Apple",       ticker:"AAPL",   category:"Stocks", logo:"https://logo.clearbit.com/apple.com" },
+  { name:"Amazon",      ticker:"AMZN",   category:"Stocks", logo:"https://logo.clearbit.com/amazon.com" },
+  { name:"Alphabet (Google)", ticker:"GOOGL", category:"Stocks", logo:"https://logo.clearbit.com/google.com" },
+  { name:"Microsoft",   ticker:"MSFT",   category:"Stocks", logo:"https://logo.clearbit.com/microsoft.com" },
+  { name:"NVIDIA",      ticker:"NVDA",   category:"Stocks", logo:"https://logo.clearbit.com/nvidia.com" },
+  { name:"Meta (Facebook)", ticker:"META", category:"Stocks", logo:"https://logo.clearbit.com/meta.com" },
+  { name:"Tesla",       ticker:"TSLA",   category:"Stocks", logo:"https://logo.clearbit.com/tesla.com" },
+  { name:"Netflix",     ticker:"NFLX",   category:"Stocks", logo:"https://logo.clearbit.com/netflix.com" },
+  { name:"Adobe",       ticker:"ADBE",   category:"Stocks", logo:"https://logo.clearbit.com/adobe.com" },
+  { name:"Berkshire Hathaway", ticker:"BRK.B", category:"Stocks", logo:"https://logo.clearbit.com/berkshirehathaway.com" },
+  { name:"JPMorgan Chase", ticker:"JPM", category:"Stocks", logo:"https://logo.clearbit.com/jpmorganchase.com" },
+  { name:"Visa",        ticker:"V",      category:"Stocks", logo:"https://logo.clearbit.com/visa.com" },
+  { name:"Mastercard",  ticker:"MA",     category:"Stocks", logo:"https://logo.clearbit.com/mastercard.com" },
+  { name:"Coca-Cola",   ticker:"KO",     category:"Stocks", logo:"https://logo.clearbit.com/coca-colacompany.com" },
+  { name:"PepsiCo",     ticker:"PEP",    category:"Stocks", logo:"https://logo.clearbit.com/pepsico.com" },
+  { name:"Broadcom",    ticker:"AVGO",   category:"Stocks", logo:"https://logo.clearbit.com/broadcom.com" },
+  { name:"UnitedHealth",ticker:"UNH",    category:"Stocks", logo:"https://logo.clearbit.com/uhc.com" },
+  { name:"ExxonMobil",  ticker:"XOM",    category:"Stocks", logo:"https://logo.clearbit.com/exxon.com" },
+  { name:"Johnson & Johnson", ticker:"JNJ", category:"Stocks", logo:"https://logo.clearbit.com/jnj.com" },
+  { name:"Shell",       ticker:"SHEL",   category:"Stocks", logo:"https://logo.clearbit.com/shell.com" },
+  // You can also add crypto, ETFs, cash, etc. with a generic logo:
+  { name:"Bitcoin",     ticker:"BTC",    category:"Crypto", logo:"https://logo.clearbit.com/bitcoin.org" },
+  { name:"Ethereum",    ticker:"ETH",    category:"Crypto", logo:"https://logo.clearbit.com/ethereum.org" },
+  { name:"Vanguard S&P 500 ETF", ticker:"VOO", category:"Stocks", logo:"https://logo.clearbit.com/vanguard.com" },
+];
 
+(function setupAutocomplete(){
+  const nameInput = document.getElementById("name");
+  const box = document.getElementById("suggestions");
+  const catSelect = document.getElementById("category");
+  let activeIndex = -1;
+  let currentItems = [];
+
+  function initials(txt){
+    return (txt||"").split(/\s+/).filter(Boolean).slice(0,2).map(s=>s[0]).join("").toUpperCase();
+  }
+
+  function render(items){
+    box.innerHTML = "";
+    activeIndex = -1;
+    currentItems = items;
+
+    if (!items.length) { box.style.display = "none"; return; }
+    items.forEach((it, i) => {
+      const row = document.createElement("div");
+      row.className = "suggest-item";
+      row.setAttribute("data-idx", i);
+
+      const img = document.createElement("img");
+      img.className = "suggest-logo";
+      img.src = it.logo;
+      img.alt = "";
+      img.onerror = () => {
+        img.replaceWith(Object.assign(document.createElement("div"), {
+          className:"suggest-logo", textContent: initials(it.name)
+        }));
+      };
+
+      const name = document.createElement("div");
+      name.className = "suggest-name";
+      name.textContent = it.name;
+
+      const meta = document.createElement("div");
+      meta.className = "suggest-meta";
+      meta.textContent = it.ticker || it.category || "";
+
+      row.appendChild(img);
+      row.appendChild(name);
+      row.appendChild(meta);
+
+      row.addEventListener("mousedown", (e) => { // mousedown to fire before input blur
+        e.preventDefault();
+        choose(i);
+      });
+
+      box.appendChild(row);
+    });
+    box.style.display = "block";
+  }
+
+  function filter(q){
+    q = (q||"").trim().toLowerCase();
+    if (!q) { render([]); return; }
+    const hits = POPULAR_ASSETS.filter(a =>
+      a.name.toLowerCase().includes(q) || (a.ticker||"").toLowerCase().includes(q)
+    ).slice(0, 12);
+    render(hits);
+  }
+
+  function choose(i){
+    const it = currentItems[i];
+    if (!it) return;
+    nameInput.value = it.name;       // fill name
+    if (it.category) catSelect.value = it.category; // set category
+    hide();
+  }
+
+  function hide(){ box.style.display = "none"; currentItems = []; activeIndex = -1; }
+
+  nameInput.addEventListener("input", () => filter(nameInput.value));
+
+  nameInput.addEventListener("keydown", (e) => {
+    const visible = box.style.display === "block";
+    if (!visible) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      activeIndex = Math.min(activeIndex + 1, currentItems.length - 1);
+      updateActive();
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      activeIndex = Math.max(activeIndex - 1, 0);
+      updateActive();
+    } else if (e.key === "Enter") {
+      if (activeIndex >= 0) {
+        e.preventDefault();
+        choose(activeIndex);
+      }
+    } else if (e.key === "Escape") {
+      hide();
+    }
+  });
+
+  function updateActive(){
+    const rows = Array.from(box.querySelectorAll(".suggest-item"));
+    rows.forEach((r, i) => r.classList.toggle("active", i === activeIndex));
+    const active = rows[activeIndex];
+    if (active) active.scrollIntoView({ block:"nearest" });
+  }
+
+  document.addEventListener("click", (e) => {
+    if (!box.contains(e.target) && e.target !== nameInput) hide();
+  });
+})();
     // boot
     load(); render();
   </script>
 </body>
 </html>
+
 
