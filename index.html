@@ -32,6 +32,23 @@
     .tools{display:flex; flex-wrap:wrap; gap:8px}
     .pill{display:inline-flex; align-items:center; gap:6px; background:#0b1220; border:1px solid #334155; color:var(--muted); padding:8px 12px; border-radius:999px; font-size:13px}
     .footer{margin-top:8px; color:var(--muted); font-size:12px}
+/* === Autocomplete === */
+.autocomplete-wrap{position:relative}
+.suggest-box{
+  position:absolute; z-index:20; inset:58px 0 auto 0; /* under the input */
+  background:#0b1220; border:1px solid #334155; border-radius:12px;
+  box-shadow:0 10px 24px rgba(0,0,0,.35); max-height:260px; overflow:auto; display:none;
+}
+.suggest-item{
+  display:flex; align-items:center; gap:10px; padding:10px 12px; cursor:pointer;
+}
+.suggest-item:hover,.suggest-item.active{background:#111827}
+.suggest-logo{
+  width:22px; height:22px; border-radius:6px; background:#111827; flex:0 0 22px;
+  display:inline-flex; align-items:center; justify-content:center; font-size:11px; color:#94a3b8;
+}
+.suggest-name{color:#e5e7eb}
+.suggest-meta{color:#94a3b8; font-size:12px; margin-left:auto}  
   </style>
 </head>
 <body>
@@ -271,3 +288,4 @@
   </script>
 </body>
 </html>
+
