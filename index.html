@@ -50,19 +50,46 @@
 .suggest-name{color:#e5e7eb}
 .suggest-meta{color:#94a3b8; font-size:12px; margin-left:auto}  
 
-/* === Fit long company names === */
-.suggest-box{
-  overflow-x: hidden;            /* no sideways scrolling */
+/* === Fix long names wrapping nicely === */
+.suggest-item{
+  display: flex;
+  align-items: flex-start;   /* rows look tidy when name wraps */
+  gap: 10px;
+  width: 100%;
 }
 
-.suggest-item{
-  align-items: flex-start;       /* align multi-line text nicely */
+.suggest-logo{
+  flex: 0 0 22px;            /* fixed logo width */
 }
 
 .suggest-name{
-  white-space: normal;           /* allow wrapping to multiple lines */
+  flex: 1 1 0;               /* <-- give the name the remaining space */
+  min-width: 0;              /* <-- critical: allow shrinking so wrapping works */
+  white-space: normal;       /* allow multi-line text */
+  overflow-wrap: break-word; /* break long tokens if needed */
+  word-break: normal;        /* prefer word boundaries */
   line-height: 1.25;
-}   
+}
+
+.suggest-meta{
+  flex: 0 0 auto;            /* don't steal space from the name */
+  white-space: nowrap;       /* keep ticker compact */
+  margin-left: 8px;
+}
+
+/* On narrow screens, move ticker under the name to avoid squeezing */
+@media (max-width: 480px){
+  .suggest-item{ flex-wrap: wrap; }
+  .suggest-meta{
+    flex-basis: 100%;
+    margin-left: 32px;       /* indent to align under the text, not the logo */
+    margin-top: 2px;
+  }
+}
+
+/* Keep the dropdown from causing sideways scrollbars */
+.suggest-box{ overflow-x: hidden; }
+
 
 /* Ensure the name can actually wrap inside a flex row */
 .suggest-item{
@@ -466,6 +493,7 @@ const POPULAR_ASSETS = [
   </script>
 </body>
 </html>
+
 
 
 
