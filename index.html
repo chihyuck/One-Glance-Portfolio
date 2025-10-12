@@ -147,7 +147,7 @@
 
   <script>
     // === PUT YOUR FINNHUB KEY HERE (keep the quotes) ===
-    const d3lgk5pr01qq28endrngd3lgk5pr01qq28endro0 = "YOUR_FINNHUB_KEY_HERE";
+    const FINNHUB_API_KEY = "d3lgk5pr01qq28endrngd3lgk5pr01qq28endro0";
     const PRICE_TTL_MS = 60 * 1000; // 1 minute cache
 
     // === Utilities & storage ===
@@ -177,7 +177,7 @@
 
     async function fetchPriceStocksEtf(ticker){
       if (!ticker) return null;
-      const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(ticker)}&token=${d3lgk5pr01qq28endrngd3lgk5pr01qq28endro0}`;
+      const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(ticker)}&token=${FINNHUB_API_KEY}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error("price fetch failed");
       const data = await res.json();
@@ -268,7 +268,7 @@
         const q = (query||"").trim();
         if (!q) return [];
         if (searchCache[q]) return searchCache[q];
-        const url = `https://finnhub.io/api/v1/search?q=${encodeURIComponent(q)}&token=${d3lgk5pr01qq28endrngd3lgk5pr01qq28endro0}`;
+        const url = `https://finnhub.io/api/v1/search?q=${encodeURIComponent(q)}&token=${FINNHUB_API_KEY}`;
         const res = await fetch(url);
         if (!res.ok) { searchCache[q] = []; return []; }
         const data = await res.json();
@@ -291,7 +291,7 @@
         if (!t) return null;
         if (profileCache[t]) return profileCache[t];
         if (t.includes("-USD")) { profileCache[t] = null; return null; } // crypto skip
-        const url = `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(t)}&token=${d3lgk5pr01qq28endrngd3lgk5pr01qq28endro0}`;
+        const url = `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(t)}&token=${FINNHUB_API_KEY}`;
         const res = await fetch(url);
         if (!res.ok) { profileCache[t] = null; return null; }
         const data = await res.json();
