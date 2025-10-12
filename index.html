@@ -6,7 +6,7 @@
   <title>One-Glance Portfolio</title>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-  <!-- Chart.js for the pie -->
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
     :root { --bg:#0f172a; --card:#111827; --muted:#94a3b8; --text:#e5e7eb; --accent:#6366f1; }
@@ -21,7 +21,7 @@
     label{display:block; font-size:14px; color:var(--muted); margin-bottom:6px}
     input,select{width:100%; padding:12px 12px; border-radius:12px; border:1px solid #334155; background:#0b1220; color:var(--text); outline:none}
     input:focus,select:focus{border-color:var(--accent)}
-    .row{display:grid; grid-template-columns:1fr 140px 1fr 1fr 120px; gap:10px}
+    .row{display:grid; grid-template-columns:2fr 1fr 1fr auto; gap:10px}
     .btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 14px; border-radius:12px; border:1px solid #334155; background:#0b1220; color:var(--text); cursor:pointer}
     .btn:hover{border-color:var(--accent)}
     .btn.primary{background:linear-gradient(135deg, #4f46e5, #06b6d4); border-color:transparent}
@@ -40,7 +40,7 @@
       position: absolute; z-index: 20; inset: 58px 0 auto 0;
       background:#0b1220; border:1px solid #334155; border-radius:12px;
       box-shadow:0 10px 24px rgba(0,0,0,.35); max-height:320px;
-      overflow-y:auto; overflow-x:hidden; display:none; width:max(320px, 100%);
+      overflow-y:auto; overflow-x:hidden; display:none; width:max(420px, 100%);
     }
     .suggest-item {
       display:grid; grid-template-columns:24px 1fr auto; align-items:start;
@@ -57,6 +57,8 @@
       .suggest-item{ grid-template-columns:24px 1fr; grid-auto-flow:row }
       .suggest-meta{ grid-column:2 / -1; margin-left:0; margin-top:2px }
     }
+    /* Wider shares input */
+    #shares{ min-width: 140px; }
   </style>
 </head>
 <body>
@@ -68,34 +70,43 @@
       <!-- Input Card -->
       <div class="card">
         <h2 style="margin:0 0 12px;font-size:18px">Add Asset</h2>
-<div class="row" style="margin-bottom:12px; grid-template-columns:2fr 1fr 1fr auto;">
-  <div>
-    <label for="name">Asset / Ticker</label>
-    <div class="autocomplete-wrap">
-      <input id="name" placeholder="Type name or symbol (e.g., Apple or AAPL)" autocomplete="off" />
-      <div id="suggestions" class="suggest-box"></div>
-    </div>
-  </div>
-  <div>
-    <label for="category">Category</label>
-    <select id="category">
-      <option value="Stocks">Stocks</option>
-      <option value="ETF">ETF</option>
-      <option value="Bonds">Bonds</option>
-      <option value="Cash">Cash</option>
-      <option value="Crypto">Crypto</option>
-      <option value="Real Estate">Real Estate</option>
-      <option value="Other">Other</option>
-    </select>
-  </div>
-  <div>
-    <label for="shares">Shares</label>
-    <input id="shares" type="number" min="0" step="0.000001" placeholder="e.g., 10.5" />
-  </div>
-  <div style="display:flex; align-items:end">
-    <button class="btn primary" id="addBtn" title="Add asset">＋ Add</button>
-  </div>
-</div>
+        <div class="row" style="margin-bottom:12px; grid-template-columns:2fr 1fr 1fr auto;">
+          <div>
+            <label for="name">Asset / Ticker</label>
+            <div class="autocomplete-wrap">
+              <input id="name" placeholder="Type name or symbol (e.g., Apple or AAPL)" autocomplete="off" />
+              <div id="suggestions" class="suggest-box"></div>
+            </div>
+          </div>
+          <div>
+            <label for="category">Category</label>
+            <select id="category">
+              <option value="Stocks">Stocks</option>
+              <option value="ETF">ETF</option>
+              <option value="Bonds">Bonds</option>
+              <option value="Cash">Cash</option>
+              <option value="Crypto">Crypto</option>
+              <option value="Real Estate">Real Estate</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label for="shares">Shares</label>
+            <input id="shares" type="number" min="0" step="0.000001" placeholder="e.g., 10.5" />
+          </div>
+          <div style="display:flex; align-items:end">
+            <button class="btn primary" id="addBtn" title="Add asset">＋ Add</button>
+          </div>
+        </div>
+        <div class="tools">
+          <button class="btn" id="exportBtn">Export JSON</button>
+          <label class="pill" for="importFile" style="cursor:pointer">
+            Import JSON <input id="importFile" type="file" accept="application/json" style="display:none">
+          </label>
+          <button class="btn" id="clearBtn">Clear All</button>
+        </div>
+        <div class="footer">Tip: Export regularly so you can restore your data anywhere.</div>
+      </div>
 
       <!-- Chart Card -->
       <div class="card">
@@ -133,30 +144,31 @@
   </div>
 
   <script>
-    // === PUT YOUR FINNHUB KEY HERE (keep the quotes) ===
-    const FINNHUB_API_KEY = "d3lgk5pr01qq28endrngd3lgk5pr01qq28endro0";
+    // === YOUR FINNHUB KEY ===
+    const FINNHUB_API_KEY = "d3lgk5pr01qq28endrngd3lgk5pr01qq28endro0"; // <-- put your real key in quotes
     const PRICE_TTL_MS = 60 * 1000; // 1 minute cache
 
-    // === Utilities & storage ===
-    const STORE_KEY = "my_portfolio_assets_v2_shares";
+    // Utilities & storage
+    const STORE_KEY = "my_portfolio_assets_v3_single_input";
     const $ = (id) => document.getElementById(id);
     const fmt = (n) => n.toLocaleString(undefined, {style:"currency", currency:"USD"});
+    function escapeHtml(s){return String(s ?? "").replace(/[&<>"']/g,(m)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 
     let assets = [];
-    function load() {
-      try {
+    function load(){
+      try{
         const raw = localStorage.getItem(STORE_KEY);
         assets = raw ? JSON.parse(raw) : [];
-        // migrate old shape {value} -> shares 0
+        // migrate old value->shares if needed
         assets = assets.map(a => {
-          if (a && typeof a === "object" && a.value != null && a.shares == null) {
-            return { name: a.name || "", ticker: (a.ticker || "").toUpperCase(), category: a.category || "Other", shares: 0 };
+          if (a && a.value != null && a.shares == null) {
+            return { name:a.name||"", ticker:(a.ticker||"").toUpperCase(), category:a.category||"Other", shares:0 };
           }
           return a;
         });
-      } catch { assets = []; }
+      }catch{ assets=[]; }
     }
-    function save() { localStorage.setItem(STORE_KEY, JSON.stringify(assets)); }
+    function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(assets)); }
 
     // === PRICE HELPERS: Stocks/ETFs via Finnhub; Crypto via Coinbase ===
     const priceCache = Object.create(null); // key: `${cat}|${ticker}` -> { price, ts }
@@ -206,7 +218,7 @@
       await Promise.all(unique.map(a => fetchPriceForAsset(a)));
     }
 
-    // === Autocomplete (Finnhub search + logos; includes ETFs & Crypto) ===
+    // === Autocomplete (Finnhub search + logos; ETFs & Crypto included) ===
     (function setupAutocomplete(){
       const nameInput = $("name");
       const box = $("suggestions");
@@ -219,9 +231,18 @@
       const searchCache = Object.create(null);   // query -> items
       const profileCache = Object.create(null);  // ticker -> { logo, weburl, name }
       const issuerDomains = [
-        ["Vanguard", "vanguard.com"],["iShares", "ishares.com"],["BlackRock","blackrock.com"],["SPDR","ssga.com"],
-        ["Invesco","invesco.com"],["Schwab","schwab.com"],["Fidelity","fidelity.com"],["VanEck","vaneck.com"],["ARK","ark-funds.com"],
+        ["Vanguard","vanguard.com"],["iShares","ishares.com"],["BlackRock","blackrock.com"],["SPDR","ssga.com"],
+        ["Invesco","invesco.com"],["Schwab","schwab.com"],["Fidelity","fidelity.com"],["VanEck","vaneck.com"],["ARK","ark-funds.com"]
       ];
+
+      // Track last picked suggestion (captures hidden ticker)
+      let pendingSel = { ticker:"", category:"" };
+      // expose for add handler
+      window.__pendingSel = pendingSel;
+      Object.defineProperty(window, "__pendingSel", {
+        get(){ return pendingSel; },
+        set(v){ pendingSel = v; }
+      });
 
       function initials(txt){ return (txt||"").split(/\s+/).filter(Boolean).slice(0,2).map(s=>s[0]).join("").toUpperCase(); }
       function clearAndHide(){ box.innerHTML=""; box.style.display="none"; currentItems=[]; activeIndex=-1; }
@@ -240,7 +261,7 @@
         return "Stocks";
       }
       function normalizeCryptoTicker(sym){
-        let s = (sym||"").toUpperCase().replace(/^.*:/, ""); // drop exchange prefix
+        let s = (sym||"").toUpperCase().replace(/^.*:/, "");
         if (s.endsWith("USDT")) s = s.slice(0, -4) + "USD";
         if (!s.includes("-") && s.endsWith("USD")) s = s.replace("USD", "-USD");
         return s; // e.g., BTC-USD
@@ -334,25 +355,13 @@
 
       function choose(i){
         const it = currentItems[i]; if (!it) return;
-        nameInput.value = it.name;
-        if (it.category) catSelect.value = it.category;
+        $("name").value = it.name;
+        window.__pendingSel = { ticker: it.ticker || "", category: it.category || "" };
+        if (it.category) $("category").value = it.category;
         clearAndHide();
       }
 
-      async function runSearch(q){
-        let items = await finnhubSearch(q);
-        items = await enrichWithLogos(items);
-        renderSuggestions(items);
-      }
-
-      function onInput(){
-        const q = nameInput.value;
-        if (!q.trim()) { clearAndHide(); return; }
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => runSearch(q), 250);
-      }
-
-      nameInput.addEventListener("input", onInput);
+      nameInput.addEventListener("input", () => { window.__pendingSel = { ticker:"", category:"" }; });
       nameInput.addEventListener("keydown", (e) => {
         const visible = box.style.display === "block"; if (!visible) return;
         if (e.key === "ArrowDown") { e.preventDefault(); activeIndex = Math.min(activeIndex+1, currentItems.length-1); updateActive(); }
@@ -360,23 +369,81 @@
         else if (e.key === "Enter") { if (activeIndex >= 0) { e.preventDefault(); choose(activeIndex); } }
         else if (e.key === "Escape") { clearAndHide(); }
       });
+
+      async function runSearch(q){
+        let items = await finnhubSearch(q);
+        items = await enrichWithLogos(items);
+        renderSuggestions(items);
+      }
+      let debounceTimer=null;
+      nameInput.addEventListener("input", () => {
+        const q = nameInput.value;
+        if (!q.trim()) { clearAndHide(); return; }
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => runSearch(q), 250);
+      });
+
       document.addEventListener("click", (e) => {
         if (!box.contains(e.target) && e.target !== nameInput) clearAndHide();
       });
     })();
 
     // === Add / Edit / Delete handlers ===
-    $("addBtn").addEventListener("click", () => {
+    $("addBtn").addEventListener("click", async () => {
       const name = $("name").value.trim();
-      const category = $("category").value;
       const shares = Number(($("shares").value || "").replace(",", "."));
+      let category = $("category").value;
+
       if (!name || isNaN(shares) || shares < 0) {
         alert("Please enter a valid name and a non-negative number of shares.");
         return;
       }
-      assets.push({ name, ticker: "", category, shares });
-      save(); render();
-      $("name").value = ""; $("ticker").value = ""; $("shares").value = "";
+
+      // use pending selection if available
+      let { ticker, category: autoCat } = (window.__pendingSel || { ticker:"", category:"" });
+      ticker = (ticker || "").toUpperCase();
+
+      // If user typed a symbol directly (AAPL / BTC-USD)
+      const looksLikeTicker = (s) => /^[A-Z][A-Z0-9.\-]{0,11}$/.test(s);
+      if (!ticker && looksLikeTicker(name.toUpperCase())) {
+        ticker = name.toUpperCase();
+        if (!autoCat) autoCat = ticker.includes("-USD") ? "Crypto" : "Stocks";
+      }
+
+      // Otherwise, search Finnhub once to resolve a symbol from the name
+      if (!ticker) {
+        try {
+          const url = `https://finnhub.io/api/v1/search?q=${encodeURIComponent(name)}&token=${FINNHUB_API_KEY}`;
+          const res = await fetch(url);
+          if (res.ok) {
+            const data = await res.json();
+            const hit = (data?.result || []).find(r => r.symbol && r.description);
+            if (hit) {
+              const desc = (hit.description || "").toUpperCase();
+              let sym = hit.symbol.toUpperCase();
+              const isCrypto =
+                sym.includes("BINANCE:") || sym.includes("COINBASE:") || sym.includes("KRAKEN:") ||
+                sym.endsWith("-USD") || sym.endsWith("USD") || sym.includes("USDT");
+              if (isCrypto) {
+                sym = sym.replace(/^.*:/, "");
+                if (sym.endsWith("USDT")) sym = sym.slice(0, -4) + "USD";
+                if (!sym.includes("-") && sym.endsWith("USD")) sym = sym.replace("USD", "-USD");
+                autoCat = "Crypto";
+              } else if (desc.includes("ETF")) { autoCat = "ETF"; }
+              else { autoCat = "Stocks"; }
+              ticker = sym;
+            }
+          }
+        } catch {}
+      }
+
+      if (!category || category === "Other") category = autoCat || category || "Stocks";
+
+      assets.push({ name, ticker, category, shares });
+      save(); await render();
+
+      $("name").value = ""; $("shares").value = "";
+      window.__pendingSel = { ticker:"", category:"" };
       $("name").focus();
     });
 
@@ -408,6 +475,7 @@
       a.href = URL.createObjectURL(blob); a.download = "portfolio.json"; a.click();
       URL.revokeObjectURL(a.href);
     });
+
     $("importFile").addEventListener("change", (e) => {
       const file = e.target.files?.[0]; if (!file) return;
       const reader = new FileReader();
@@ -426,6 +494,7 @@
       };
       reader.readAsText(file); e.target.value = "";
     });
+
     $("clearBtn").addEventListener("click", () => {
       if (confirm("This will remove all assets on this device.")) { assets = []; save(); render(); }
     });
@@ -493,15 +562,9 @@
       updatePie(Object.keys(byCat), Object.values(byCat));
     }
 
-    function escapeHtml(s) {
-      return String(s ?? "").replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-    }
-
     // boot
     load(); render();
-    // auto-refresh prices every 60s
     setInterval(() => { render(); }, 60_000);
   </script>
 </body>
 </html>
-
