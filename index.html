@@ -68,47 +68,34 @@
       <!-- Input Card -->
       <div class="card">
         <h2 style="margin:0 0 12px;font-size:18px">Add Asset</h2>
-        <div class="row" style="margin-bottom:12px">
-          <div>
-            <label for="name">Asset</label>
-            <div class="autocomplete-wrap">
-              <input id="name" placeholder="e.g., Apple" autocomplete="off" />
-              <div id="suggestions" class="suggest-box"></div>
-            </div>
-          </div>
-          <div>
-            <label for="ticker">Ticker</label>
-            <input id="ticker" placeholder="e.g., AAPL or BTC-USD" />
-          </div>
-          <div>
-            <label for="category">Category</label>
-            <select id="category">
-              <option value="Stocks">Stocks</option>
-              <option value="ETF">ETF</option>
-              <option value="Bonds">Bonds</option>
-              <option value="Cash">Cash</option>
-              <option value="Crypto">Crypto</option>
-              <option value="Real Estate">Real Estate</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
-          <div>
-            <label for="shares">Shares</label>
-            <input id="shares" type="number" min="0" step="0.000001" placeholder="e.g., 1.25" />
-          </div>
-          <div style="display:flex; align-items:end">
-            <button class="btn primary" id="addBtn" title="Add asset">＋ Add</button>
-          </div>
-        </div>
-        <div class="tools">
-          <button class="btn" id="exportBtn">Export JSON</button>
-          <label class="pill" for="importFile" style="cursor:pointer">
-            Import JSON <input id="importFile" type="file" accept="application/json" style="display:none">
-          </label>
-          <button class="btn" id="clearBtn">Clear All</button>
-        </div>
-        <div class="footer">Tip: Export regularly so you can restore your data anywhere.</div>
-      </div>
+<div class="row" style="margin-bottom:12px; grid-template-columns:2fr 1fr 1fr auto;">
+  <div>
+    <label for="name">Asset / Ticker</label>
+    <div class="autocomplete-wrap">
+      <input id="name" placeholder="Type name or symbol (e.g., Apple or AAPL)" autocomplete="off" />
+      <div id="suggestions" class="suggest-box"></div>
+    </div>
+  </div>
+  <div>
+    <label for="category">Category</label>
+    <select id="category">
+      <option value="Stocks">Stocks</option>
+      <option value="ETF">ETF</option>
+      <option value="Bonds">Bonds</option>
+      <option value="Cash">Cash</option>
+      <option value="Crypto">Crypto</option>
+      <option value="Real Estate">Real Estate</option>
+      <option value="Other">Other</option>
+    </select>
+  </div>
+  <div>
+    <label for="shares">Shares</label>
+    <input id="shares" type="number" min="0" step="0.000001" placeholder="e.g., 10.5" />
+  </div>
+  <div style="display:flex; align-items:end">
+    <button class="btn primary" id="addBtn" title="Add asset">＋ Add</button>
+  </div>
+</div>
 
       <!-- Chart Card -->
       <div class="card">
@@ -224,7 +211,6 @@
       const nameInput = $("name");
       const box = $("suggestions");
       const catSelect = $("category");
-      const tickerInput = $("ticker");
 
       let activeIndex = -1;
       let currentItems = [];
@@ -349,7 +335,6 @@
       function choose(i){
         const it = currentItems[i]; if (!it) return;
         nameInput.value = it.name;
-        if (tickerInput) tickerInput.value = it.ticker || "";
         if (it.category) catSelect.value = it.category;
         clearAndHide();
       }
@@ -383,14 +368,13 @@
     // === Add / Edit / Delete handlers ===
     $("addBtn").addEventListener("click", () => {
       const name = $("name").value.trim();
-      const ticker = ($("ticker").value || "").trim().toUpperCase();
       const category = $("category").value;
       const shares = Number(($("shares").value || "").replace(",", "."));
       if (!name || isNaN(shares) || shares < 0) {
         alert("Please enter a valid name and a non-negative number of shares.");
         return;
       }
-      assets.push({ name, ticker, category, shares });
+      assets.push({ name, ticker: "", category, shares });
       save(); render();
       $("name").value = ""; $("ticker").value = ""; $("shares").value = "";
       $("name").focus();
@@ -520,3 +504,4 @@
   </script>
 </body>
 </html>
+
