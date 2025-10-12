@@ -32,86 +32,89 @@
     .tools{display:flex; flex-wrap:wrap; gap:8px}
     .pill{display:inline-flex; align-items:center; gap:6px; background:#0b1220; border:1px solid #334155; color:var(--muted); padding:8px 12px; border-radius:999px; font-size:13px}
     .footer{margin-top:8px; color:var(--muted); font-size:12px}
-/* === Autocomplete === */
-.autocomplete-wrap{position:relative}
-.suggest-box{
-  position:absolute; z-index:20; inset:58px 0 auto 0; /* under the input */
-  background:#0b1220; border:1px solid #334155; border-radius:12px;
-  box-shadow:0 10px 24px rgba(0,0,0,.35); max-height:260px; overflow:auto; display:none;
+/* === Autocomplete dropdown (fixed width & wrapping) === */
+.autocomplete-wrap {
+  position: relative;
+  overflow: visible;
 }
-.suggest-item{
-  display:flex; align-items:center; gap:10px; padding:10px 12px; cursor:pointer;
-}
-.suggest-item:hover,.suggest-item.active{background:#111827}
-.suggest-logo{
-  width:22px; height:22px; border-radius:6px; background:#111827; flex:0 0 22px;
-  display:inline-flex; align-items:center; justify-content:center; font-size:11px; color:#94a3b8;
-}
-.suggest-name{color:#e5e7eb}
-.suggest-meta{color:#94a3b8; font-size:12px; margin-left:auto}  
 
-/* === Fix long names wrapping nicely === */
-.suggest-item{
-  display: flex;
-  align-items: flex-start;   /* rows look tidy when name wraps */
+/* The dropdown container */
+.suggest-box {
+  position: absolute;
+  z-index: 20;
+  inset: 58px 0 auto 0;
+  background: #0b1220;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  box-shadow: 0 10px 24px rgba(0,0,0,.35);
+  max-height: 320px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: none;
+  width: max(320px, 100%); /* at least 320px wide */
+}
+
+/* Each row inside the dropdown */
+.suggest-item {
+  display: grid;
+  grid-template-columns: 24px 1fr auto; /* logo | name | ticker */
+  align-items: start;
   gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
   width: 100%;
 }
 
-.suggest-logo{
-  flex: 0 0 22px;            /* fixed logo width */
+.suggest-item:hover,
+.suggest-item.active {
+  background: #111827;
 }
 
-.suggest-name{
-  flex: 1 1 0;               /* <-- give the name the remaining space */
-  min-width: 0;              /* <-- critical: allow shrinking so wrapping works */
-  white-space: normal;       /* allow multi-line text */
-  overflow-wrap: break-word; /* break long tokens if needed */
-  word-break: normal;        /* prefer word boundaries */
+/* Logo box */
+.suggest-logo {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: #111827;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+/* Name text — wraps naturally */
+.suggest-name {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
   line-height: 1.25;
+  min-width: 0;
+  color: #e5e7eb;
 }
 
-.suggest-meta{
-  flex: 0 0 auto;            /* don't steal space from the name */
-  white-space: nowrap;       /* keep ticker compact */
-  margin-left: 8px;
+/* Ticker / meta column */
+.suggest-meta {
+  white-space: nowrap;
+  color: #94a3b8;
+  font-size: 12px;
+  margin-left: 4px;
 }
 
-/* On narrow screens, move ticker under the name to avoid squeezing */
-@media (max-width: 480px){
-  .suggest-item{ flex-wrap: wrap; }
-  .suggest-meta{
-    flex-basis: 100%;
-    margin-left: 32px;       /* indent to align under the text, not the logo */
+/* Mobile layout: drop ticker below name */
+@media (max-width: 480px) {
+  .suggest-item {
+    grid-template-columns: 24px 1fr;
+    grid-auto-flow: row;
+  }
+  .suggest-meta {
+    grid-column: 2 / -1;
+    margin-left: 0;
     margin-top: 2px;
   }
 }
 
-/* Keep the dropdown from causing sideways scrollbars */
-.suggest-box{ overflow-x: hidden; }
-
-
-/* Ensure the name can actually wrap inside a flex row */
-.suggest-item{
-  display: flex;
-  align-items: flex-start;  /* keeps multi-line rows tidy */
-  gap: 10px;
-}
-
-.suggest-name{
-  flex: 1;                 /* take remaining space */
-  min-width: 0;            /* <-- IMPORTANT: allows wrapping in flex */
-  white-space: normal;     /* allow multi-line */
-  overflow-wrap: anywhere; /* break very long words/symbols */
-  word-break: break-word;  /* extra safety for long tokens */
-  line-height: 1.25;
-}
-
-.suggest-meta{
-  flex: 0 0 auto;          /* don't steal width from the name */
-  white-space: nowrap;     /* keep ticker on one line */
-  margin-left: 8px;
-}
   
   </style>
 </head>
@@ -493,6 +496,7 @@ const POPULAR_ASSETS = [
   </script>
 </body>
 </html>
+
 
 
 
