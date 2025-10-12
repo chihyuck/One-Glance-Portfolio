@@ -63,6 +63,29 @@
   white-space: normal;           /* allow wrapping to multiple lines */
   line-height: 1.25;
 }   
+
+/* Ensure the name can actually wrap inside a flex row */
+.suggest-item{
+  display: flex;
+  align-items: flex-start;  /* keeps multi-line rows tidy */
+  gap: 10px;
+}
+
+.suggest-name{
+  flex: 1;                 /* take remaining space */
+  min-width: 0;            /* <-- IMPORTANT: allows wrapping in flex */
+  white-space: normal;     /* allow multi-line */
+  overflow-wrap: anywhere; /* break very long words/symbols */
+  word-break: break-word;  /* extra safety for long tokens */
+  line-height: 1.25;
+}
+
+.suggest-meta{
+  flex: 0 0 auto;          /* don't steal width from the name */
+  white-space: nowrap;     /* keep ticker on one line */
+  margin-left: 8px;
+}
+  
   </style>
 </head>
 <body>
@@ -350,6 +373,7 @@ const POPULAR_ASSETS = [
       const row = document.createElement("div");
       row.className = "suggest-item";
       row.setAttribute("data-idx", i);
+      row.title = `${it.name}${it.ticker ? " (" + it.ticker + ")" : ""}`;
 
       const img = document.createElement("img");
       img.className = "suggest-logo";
@@ -442,6 +466,7 @@ const POPULAR_ASSETS = [
   </script>
 </body>
 </html>
+
 
 
 
