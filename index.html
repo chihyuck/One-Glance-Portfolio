@@ -4,10 +4,14 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>One-Glance Portfolio</title>
+
+  <!-- Fonts (optional) -->
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-  <!-- Chart.js for the pie -->
+
+  <!-- Chart.js for the pie chart -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
   <style>
     :root { --bg:#0f172a; --card:#111827; --muted:#94a3b8; --text:#e5e7eb; --accent:#6366f1; }
     *{box-sizing:border-box}
@@ -15,16 +19,21 @@
     .wrap{max-width:980px; margin:40px auto; padding:0 16px}
     .title{font-weight:600; font-size:28px; margin:0 0 6px}
     .sub{color:var(--muted); margin:0 0 24px}
+
     .grid{display:grid; gap:16px}
     @media (min-width:900px){ .grid{grid-template-columns:1fr 1fr} }
+
     .card{background:var(--card); border:1px solid #1f2937; border-radius:16px; padding:16px; box-shadow:0 10px 24px rgba(0,0,0,.25)}
+
     label{display:block; font-size:14px; color:var(--muted); margin-bottom:6px}
     input,select{width:100%; padding:12px 12px; border-radius:12px; border:1px solid #334155; background:#0b1220; color:var(--text); outline:none}
     input:focus,select:focus{border-color:var(--accent)}
-    .row{display:grid; grid-template-columns:1fr 140px 1fr 1fr 120px; gap:10px}
+    .row{display:grid; grid-template-columns:2fr 1fr 1fr auto; gap:10px}
+
     .btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 14px; border-radius:12px; border:1px solid #334155; background:#0b1220; color:var(--text); cursor:pointer}
     .btn:hover{border-color:var(--accent)}
     .btn.primary{background:linear-gradient(135deg, #4f46e5, #06b6d4); border-color:transparent}
+
     table{width:100%; border-collapse:separate; border-spacing:0; overflow:hidden; border-radius:12px; border:1px solid #1f2937}
     thead th{background:#0b1220; color:var(--muted); text-align:left; padding:12px; font-weight:600; position:sticky; top:0}
     tbody td{padding:12px; border-top:1px solid #1f2937}
@@ -40,7 +49,7 @@
       position: absolute; z-index: 20; inset: 58px 0 auto 0;
       background:#0b1220; border:1px solid #334155; border-radius:12px;
       box-shadow:0 10px 24px rgba(0,0,0,.35); max-height:320px;
-      overflow-y:auto; overflow-x:hidden; display:none; width:max(320px, 100%);
+      overflow-y:auto; overflow-x:hidden; display:none; width:max(440px, 100%);
     }
     .suggest-item {
       display:grid; grid-template-columns:24px 1fr auto; align-items:start;
@@ -57,28 +66,27 @@
       .suggest-item{ grid-template-columns:24px 1fr; grid-auto-flow:row }
       .suggest-meta{ grid-column:2 / -1; margin-left:0; margin-top:2px }
     }
+
+    /* Wider shares input */
+    #shares{ min-width: 140px; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <h1 class="title">One-Glance Portfolio</h1>
-    <p class="sub">Track shares across stocks, ETFs, and crypto. Values update from live prices. Data is saved locally in your browser.</p>
+    <p class="sub">Track shares across stocks, ETFs, and crypto. Values update from live prices. Your data stays in your browser.</p>
 
     <div class="grid">
       <!-- Input Card -->
       <div class="card">
         <h2 style="margin:0 0 12px;font-size:18px">Add Asset</h2>
-        <div class="row" style="margin-bottom:12px">
+        <div class="row" style="margin-bottom:12px; grid-template-columns:2fr 1fr 1fr auto;">
           <div>
-            <label for="name">Asset</label>
+            <label for="name">Asset / Ticker</label>
             <div class="autocomplete-wrap">
-              <input id="name" placeholder="e.g., Apple" autocomplete="off" />
+              <input id="name" placeholder="Type name or symbol (e.g., Apple or AAPL)" autocomplete="off" />
               <div id="suggestions" class="suggest-box"></div>
             </div>
-          </div>
-          <div>
-            <label for="ticker">Ticker</label>
-            <input id="ticker" placeholder="e.g., AAPL or BTC-USD" />
           </div>
           <div>
             <label for="category">Category</label>
@@ -94,18 +102,18 @@
           </div>
           <div>
             <label for="shares">Shares</label>
-            <input id="shares" type="number" min="0" step="0.000001" placeholder="e.g., 1.25" />
+            <input id="shares" type="number" min="0" step="0.000001" placeholder="e.g., 10.5" />
           </div>
           <div style="display:flex; align-items:end">
-            <button class="btn primary" id="addBtn" title="Add asset">＋ Add</button>
+            <button class="btn primary" id="addBtn" title="Add asset" type="button">＋ Add</button>
           </div>
         </div>
         <div class="tools">
-          <button class="btn" id="exportBtn">Export JSON</button>
+          <button class="btn" id="exportBtn" type="button">Export JSON</button>
           <label class="pill" for="importFile" style="cursor:pointer">
             Import JSON <input id="importFile" type="file" accept="application/json" style="display:none">
           </label>
-          <button class="btn" id="clearBtn">Clear All</button>
+          <button class="btn" id="clearBtn" type="button">Clear All</button>
         </div>
         <div class="footer">Tip: Export regularly so you can restore your data anywhere.</div>
       </div>
@@ -146,34 +154,52 @@
   </div>
 
   <script>
-    // === PUT YOUR FINNHUB KEY HERE (keep the quotes) ===
-    const FINNHUB_API_KEY = "d3lgk5pr01qq28endrngd3lgk5pr01qq28endro0";
-    const PRICE_TTL_MS = 60 * 1000; // 1 minute cache
+    /* =========================
+       CONFIG + DEBUG HELPERS
+    ========================== */
+    const FINNHUB_API_KEY = "d3lgk5pr01qq28endrngd3lgk5pr01qq28endro0"; // <-- put your real key in quotes
+    let pendingSel = { ticker: "", category: "" };   // stores last picked suggestion
 
-    // === Utilities & storage ===
-    const STORE_KEY = "my_portfolio_assets_v2_shares";
+    // Show any JS errors on-page (handy while wiring things)
+    window.addEventListener('error', e => {
+      const m = document.createElement('div');
+      m.style.cssText = 'position:fixed;left:8px;bottom:8px;background:#111827;color:#fca5a5;border:1px solid #7f1d1d;padding:6px 8px;border-radius:8px;z-index:99999;max-width:90vw;font:12px/1.3 system-ui';
+      m.textContent = 'JS Error: ' + (e.message || e.error);
+      document.body.appendChild(m);
+    });
+
+    /* =========================
+       UTILITIES + STORAGE
+    ========================== */
+    const STORE_KEY = "my_portfolio_assets_v4_singleinput_domready";
     const $ = (id) => document.getElementById(id);
     const fmt = (n) => n.toLocaleString(undefined, {style:"currency", currency:"USD"});
+    function escapeHtml(s){return String(s ?? "").replace(/[&<>"']/g,(m)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 
     let assets = [];
-    function load() {
-      try {
+    function load(){
+      try{
         const raw = localStorage.getItem(STORE_KEY);
         assets = raw ? JSON.parse(raw) : [];
-        // migrate old shape {value} -> shares 0
+        // migrate from old {value} shape if ever present
         assets = assets.map(a => {
-          if (a && typeof a === "object" && a.value != null && a.shares == null) {
-            return { name: a.name || "", ticker: (a.ticker || "").toUpperCase(), category: a.category || "Other", shares: 0 };
+          if (a && a.value != null && a.shares == null) {
+            return { name:a.name||"", ticker:(a.ticker||"").toUpperCase(), category:a.category||"Other", shares:0 };
           }
           return a;
         });
-      } catch { assets = []; }
+      }catch{ assets=[]; }
     }
-    function save() { localStorage.setItem(STORE_KEY, JSON.stringify(assets)); }
+    function save(){ localStorage.setItem(STORE_KEY, JSON.stringify(assets)); }
 
-    // === PRICE HELPERS: Stocks/ETFs via Finnhub; Crypto via Coinbase ===
+    /* =========================
+       PRICE HELPERS
+       Stocks/ETFs: Finnhub /quote
+       Crypto: Coinbase spot
+    ========================== */
+    const PRICE_TTL_MS = 60 * 1000;
     const priceCache = Object.create(null); // key: `${cat}|${ticker}` -> { price, ts }
-    function cacheKey(cat, t){ return `${(cat||"").toUpperCase()}|${(t||"").toUpperCase()}`; }
+    const cacheKey = (cat,t) => `${(cat||"").toUpperCase()}|${(t||"").toUpperCase()}`;
 
     async function fetchPriceStocksEtf(ticker){
       if (!ticker) return null;
@@ -183,14 +209,13 @@
       const data = await res.json();
       return Number(data?.c) || null;
     }
-    async function fetchPriceCrypto(pair){ // e.g., BTC-USD
+    async function fetchPriceCrypto(pair){
       if (!pair) return null;
       const url = `https://api.coinbase.com/v2/prices/${encodeURIComponent(pair)}/spot`;
       const res = await fetch(url);
       if (!res.ok) throw new Error("crypto price failed");
       const data = await res.json();
-      const amt = data?.data?.amount;
-      return amt ? Number(amt) : null;
+      return data?.data?.amount ? Number(data.data.amount) : null;
     }
     async function fetchPriceForAsset(asset){
       const cat = (asset.category || "").toUpperCase();
@@ -201,11 +226,9 @@
       if (hit && (now - hit.ts) < PRICE_TTL_MS) return hit.price;
 
       let price = null;
-      if (cat === "CRYPTO" || t.includes("-USD")) {
-        price = await fetchPriceCrypto(t).catch(()=>null);
-      } else {
-        price = await fetchPriceStocksEtf(t).catch(()=>null);
-      }
+      if (cat === "CRYPTO" || t.includes("-USD")) price = await fetchPriceCrypto(t).catch(()=>null);
+      else price = await fetchPriceStocksEtf(t).catch(()=>null);
+
       priceCache[key] = { price, ts: now };
       return price;
     }
@@ -219,234 +242,284 @@
       await Promise.all(unique.map(a => fetchPriceForAsset(a)));
     }
 
-    // === Autocomplete (Finnhub search + logos; includes ETFs & Crypto) ===
-    (function setupAutocomplete(){
+    /* =========================
+       AUTOCOMPLETE (Finnhub + fallback)
+    ========================== */
+    function setupAutocomplete(){
       const nameInput = $("name");
       const box = $("suggestions");
       const catSelect = $("category");
-      const tickerInput = $("ticker");
 
       let activeIndex = -1;
       let currentItems = [];
       let debounceTimer = null;
 
-      const searchCache = Object.create(null);   // query -> items
-      const profileCache = Object.create(null);  // ticker -> { logo, weburl, name }
-      const issuerDomains = [
-        ["Vanguard", "vanguard.com"],["iShares", "ishares.com"],["BlackRock","blackrock.com"],["SPDR","ssga.com"],
-        ["Invesco","invesco.com"],["Schwab","schwab.com"],["Fidelity","fidelity.com"],["VanEck","vaneck.com"],["ARK","ark-funds.com"],
+      const searchCache = Object.create(null);
+      const profileCache = Object.create(null);
+
+      const POPULAR_FALLBACK = [
+        { name:"Apple", ticker:"AAPL", category:"Stocks", logo:"https://logo.clearbit.com/apple.com" },
+        { name:"Amazon", ticker:"AMZN", category:"Stocks", logo:"https://logo.clearbit.com/amazon.com" },
+        { name:"NVIDIA", ticker:"NVDA", category:"Stocks", logo:"https://logo.clearbit.com/nvidia.com" },
+        { name:"Vanguard S&P 500 ETF", ticker:"VOO", category:"ETF", logo:"https://logo.clearbit.com/vanguard.com" },
+        { name:"SPDR S&P 500 ETF", ticker:"SPY", category:"ETF", logo:"https://logo.clearbit.com/ssga.com" },
+        { name:"Bitcoin", ticker:"BTC-USD", category:"Crypto", logo:"https://logo.clearbit.com/coinbase.com" },
+        { name:"Ethereum", ticker:"ETH-USD", category:"Crypto", logo:"https://logo.clearbit.com/coinbase.com" },
       ];
 
       function initials(txt){ return (txt||"").split(/\s+/).filter(Boolean).slice(0,2).map(s=>s[0]).join("").toUpperCase(); }
       function clearAndHide(){ box.innerHTML=""; box.style.display="none"; currentItems=[]; activeIndex=-1; }
-      function updateActive(){
-        const rows = Array.from(box.querySelectorAll(".suggest-item"));
-        rows.forEach((r, i) => r.classList.toggle("active", i === activeIndex));
-        const active = rows[activeIndex];
-        if (active) active.scrollIntoView({ block:"nearest" });
+      function normalizeCryptoTicker(sym){
+        let s = (sym||"").toUpperCase().replace(/^.*:/,"");
+        if (s.endsWith("USDT")) s = s.slice(0,-4) + "USD";
+        if (!s.includes("-") && s.endsWith("USD")) s = s.replace("USD","-USD");
+        return s;
       }
-      function detectCategoryFromResult(r){
-        const desc = (r.description || "").toUpperCase();
-        const sym  = (r.symbol || "").toUpperCase();
-        if (sym.includes("BINANCE:") || sym.includes("COINBASE:") || sym.includes("KRAKEN:")
-            || sym.endsWith("-USD") || sym.endsWith("USD") || sym.includes("USDT")) return "Crypto";
-        if (desc.includes("ETF") || ["VANGUARD","ISHARES","SPDR","INVESCO","SCHWAB","FIDELITY","VANECK","ARK"].some(k=>desc.includes(k))) return "ETF";
+      function detectCategory(sym, desc){
+        const S = (sym||"").toUpperCase();
+        const D = (desc||"").toUpperCase();
+        if (S.includes("BINANCE:")||S.includes("COINBASE:")||S.includes("KRAKEN:")||S.endsWith("-USD")||S.endsWith("USD")||S.includes("USDT")) return "Crypto";
+        if (D.includes("ETF") || /(VANGUARD|ISHARES|SPDR|INVESCO|SCHWAB|FIDELITY|VANECK|ARK)/.test(D)) return "ETF";
         return "Stocks";
       }
-      function normalizeCryptoTicker(sym){
-        let s = (sym||"").toUpperCase().replace(/^.*:/, ""); // drop exchange prefix
-        if (s.endsWith("USDT")) s = s.slice(0, -4) + "USD";
-        if (!s.includes("-") && s.endsWith("USD")) s = s.replace("USD", "-USD");
-        return s; // e.g., BTC-USD
-      }
       function clearbitFromWeburl(weburl){
-        try { if (!weburl) return ""; const u = new URL(weburl); return `https://logo.clearbit.com/${u.hostname.replace(/^www\./,"")}`; }
-        catch { return ""; }
-      }
-
-      async function finnhubSearch(query){
-        const q = (query||"").trim();
-        if (!q) return [];
-        if (searchCache[q]) return searchCache[q];
-        const url = `https://finnhub.io/api/v1/search?q=${encodeURIComponent(q)}&token=${FINNHUB_API_KEY}`;
-        const res = await fetch(url);
-        if (!res.ok) { searchCache[q] = []; return []; }
-        const data = await res.json();
-        const raw = Array.isArray(data.result) ? data.result : [];
-        const items = raw
-          .filter(r => r.symbol && r.description)
-          .slice(0, 12)
-          .map(r => {
-            const category = detectCategoryFromResult(r);
-            let ticker = r.symbol.toUpperCase();
-            if (category === "Crypto") ticker = normalizeCryptoTicker(ticker);
-            return { name: r.description, ticker, category, logo: "" };
-          });
-        searchCache[q] = items;
-        return items;
+        try{ if(!weburl) return ""; const u=new URL(weburl); return `https://logo.clearbit.com/${u.hostname.replace(/^www\./,"")}`; }catch{ return ""; }
       }
 
       async function finnhubProfile(ticker){
-        const t = (ticker||"").toUpperCase();
-        if (!t) return null;
+        const t=(ticker||"").toUpperCase(); if(!t) return null;
         if (profileCache[t]) return profileCache[t];
-        if (t.includes("-USD")) { profileCache[t] = null; return null; } // crypto skip
+        if (t.includes("-USD")) { profileCache[t]=null; return null; } // crypto skip
         const url = `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(t)}&token=${FINNHUB_API_KEY}`;
         const res = await fetch(url);
-        if (!res.ok) { profileCache[t] = null; return null; }
+        if (!res.ok){ profileCache[t]=null; return null; }
         const data = await res.json();
-        const out = { name: data?.name || "", weburl: data?.weburl || "", logo: data?.logo || "" };
-        profileCache[t] = out;
-        return out;
+        const out = { name:data?.name||"", weburl:data?.weburl||"", logo:data?.logo||"" };
+        profileCache[t]=out; return out;
       }
 
-      function inferIssuerDomain(name){
-        const hit = issuerDomains.find(([k]) => (name||"").toUpperCase().includes(k.toUpperCase()));
-        return hit ? hit[1] : "";
-      }
+      async function finnhubSearch(query){
+        const q = (query||"").trim(); if(!q) return [];
+        if (searchCache[q]) return searchCache[q];
 
-      async function enrichWithLogos(items){
-        const head = items.slice(0, 8);
-        await Promise.all(head.map(async (it) => {
-          let p = await finnhubProfile(it.ticker).catch(()=>null);
-          if (p?.logo) { it.logo = p.logo; return; }
-          if (p?.weburl) { const l = clearbitFromWeburl(p.weburl); if (l) { it.logo = l; return; } }
-          if (it.category === "ETF" && !it.logo) {
-            const domain = inferIssuerDomain(it.name); if (domain) it.logo = `https://logo.clearbit.com/${domain}`;
-          }
-          if (it.category === "Crypto" && !it.logo) { it.logo = "https://logo.clearbit.com/coinbase.com"; }
-        }));
+        const url = `https://finnhub.io/api/v1/search?q=${encodeURIComponent(q)}&token=${FINNHUB_API_KEY}`;
+        let items = [];
+        try{
+          const res = await fetch(url);
+          if (!res.ok) throw new Error("search failed");
+          const data = await res.json();
+          const raw = Array.isArray(data.result) ? data.result : [];
+          items = raw.filter(r=>r.symbol && r.description).slice(0,12).map(r=>{
+            const cat = detectCategory(r.symbol, r.description);
+            let t = r.symbol.toUpperCase();
+            if (cat==="Crypto") t = normalizeCryptoTicker(t);
+            return { name:r.description, ticker:t, category:cat, logo:"" };
+          });
+
+          const head = items.slice(0,8);
+          await Promise.all(head.map(async (it)=>{
+            const p = await finnhubProfile(it.ticker).catch(()=>null);
+            if (p?.logo) it.logo = p.logo;
+            else if (p?.weburl){ const l=clearbitFromWeburl(p.weburl); if(l) it.logo=l; }
+            if (!it.logo && it.category==="ETF") it.logo="https://logo.clearbit.com/vanguard.com";
+            if (!it.logo && it.category==="Crypto") it.logo="https://logo.clearbit.com/coinbase.com";
+          }));
+        }catch{
+          const ql = q.toLowerCase();
+          items = POPULAR_FALLBACK.filter(x =>
+            x.name.toLowerCase().includes(ql) || (x.ticker||"").toLowerCase().includes(ql)
+          ).slice(0,8);
+        }
+        searchCache[q]=items;
         return items;
       }
 
       function renderSuggestions(items){
-        box.innerHTML = ""; activeIndex = -1; currentItems = items;
-        if (!items.length) { clearAndHide(); return; }
-        for (let i=0;i<items.length;i++){
-          const it = items[i];
+        box.innerHTML=""; activeIndex=-1; currentItems=items;
+        if (!items.length){ clearAndHide(); return; }
+        items.forEach((it,i)=>{
           const row = document.createElement("div");
           row.className = "suggest-item";
           row.setAttribute("data-idx", i);
-          row.title = `${it.name}${it.ticker ? " (" + it.ticker + ")" : ""}`;
+          row.title = `${it.name}${it.ticker ? " ("+it.ticker+")" : ""}`;
 
-          const logoEl = document.createElement("img");
-          logoEl.className = "suggest-logo"; logoEl.src = it.logo || ""; logoEl.alt = "";
-          logoEl.onerror = () => {
-            const badge = document.createElement("div"); badge.className = "suggest-logo";
-            badge.textContent = initials(it.name); logoEl.replaceWith(badge);
-          };
+          const logo = document.createElement("img");
+          logo.className="suggest-logo"; logo.src=it.logo||""; logo.alt="";
+          logo.onerror = () => { const b=document.createElement("div"); b.className="suggest-logo"; b.textContent=initials(it.name); logo.replaceWith(b); };
 
-          const nameEl = document.createElement("div"); nameEl.className = "suggest-name"; nameEl.textContent = it.name;
-          const metaEl = document.createElement("div"); metaEl.className = "suggest-meta"; metaEl.textContent = it.ticker || "";
+          const nameEl = document.createElement("div"); nameEl.className="suggest-name"; nameEl.textContent=it.name;
+          const meta = document.createElement("div"); meta.className="suggest-meta"; meta.textContent=it.ticker||"";
 
-          row.appendChild(logoEl); row.appendChild(nameEl); row.appendChild(metaEl);
-          row.addEventListener("mousedown", (e) => { e.preventDefault(); choose(i); });
+          row.appendChild(logo); row.appendChild(nameEl); row.appendChild(meta);
+          row.addEventListener("mousedown",(e)=>{ e.preventDefault(); choose(i); });
           box.appendChild(row);
-        }
-        box.style.display = "block";
+        });
+        box.style.display="block";
       }
 
       function choose(i){
         const it = currentItems[i]; if (!it) return;
-        nameInput.value = it.name;
-        if (tickerInput) tickerInput.value = it.ticker || "";
-        if (it.category) catSelect.value = it.category;
+        $("name").value = it.name;
+        pendingSel = { ticker: it.ticker || "", category: it.category || "" };
+        if (it.category) $("category").value = it.category;
         clearAndHide();
       }
 
-      async function runSearch(q){
-        let items = await finnhubSearch(q);
-        items = await enrichWithLogos(items);
-        renderSuggestions(items);
-      }
+      // typing clears previous selection
+      nameInput.addEventListener("input", () => { pendingSel = { ticker:"", category:"" }; });
 
-      function onInput(){
+      nameInput.addEventListener("keydown", (e)=>{
+        const visible = box.style.display==="block"; if(!visible) return;
+        const rows = Array.from(box.querySelectorAll(".suggest-item"));
+        if (e.key==="ArrowDown"){ e.preventDefault(); activeIndex=Math.min(activeIndex+1, rows.length-1); }
+        else if (e.key==="ArrowUp"){ e.preventDefault(); activeIndex=Math.max(activeIndex-1, 0); }
+        else if (e.key==="Enter"){ if (activeIndex>=0){ e.preventDefault(); choose(activeIndex); } }
+        else if (e.key==="Escape"){ clearAndHide(); }
+        rows.forEach((r,i)=>r.classList.toggle("active", i===activeIndex));
+        const ac = rows[activeIndex]; if (ac) ac.scrollIntoView({block:"nearest"});
+      });
+
+      let debounceTimer=null;
+      nameInput.addEventListener("input", ()=>{
         const q = nameInput.value;
-        if (!q.trim()) { clearAndHide(); return; }
+        if (!q.trim()){ clearAndHide(); return; }
         clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => runSearch(q), 250);
-      }
-
-      nameInput.addEventListener("input", onInput);
-      nameInput.addEventListener("keydown", (e) => {
-        const visible = box.style.display === "block"; if (!visible) return;
-        if (e.key === "ArrowDown") { e.preventDefault(); activeIndex = Math.min(activeIndex+1, currentItems.length-1); updateActive(); }
-        else if (e.key === "ArrowUp") { e.preventDefault(); activeIndex = Math.max(activeIndex-1, 0); updateActive(); }
-        else if (e.key === "Enter") { if (activeIndex >= 0) { e.preventDefault(); choose(activeIndex); } }
-        else if (e.key === "Escape") { clearAndHide(); }
+        debounceTimer = setTimeout(async()=>{ renderSuggestions(await finnhubSearch(q)); }, 250);
       });
-      document.addEventListener("click", (e) => {
-        if (!box.contains(e.target) && e.target !== nameInput) clearAndHide();
+
+      document.addEventListener("click", (e)=>{ if (!box.contains(e.target) && e.target !== nameInput) clearAndHide(); });
+    }
+
+    /* =========================
+       ADD / EDIT / DELETE
+    ========================== */
+    function wireAddHandler(){
+      const addBtn = $("addBtn");
+      if (!addBtn) return;
+
+      addBtn.addEventListener("click", async () => {
+        const nameEl = $("name");
+        const sharesEl = $("shares");
+        const catEl = $("category");
+
+        const name = (nameEl.value || "").trim();
+        const shares = Number((sharesEl.value || "").replace(",", "."));
+        let category = catEl.value;
+
+        if (!name || isNaN(shares) || shares < 0) {
+          alert("Please enter a valid name and a non-negative number of shares.");
+          return;
+        }
+
+        // Use pending selection if chosen
+        let { ticker, category: autoCat } = pendingSel || { ticker:"", category:"" };
+        ticker = (ticker || "").toUpperCase();
+
+        // If user typed a symbol directly
+        const looksLikeTicker = (s) => /^[A-Z][A-Z0-9.\-]{0,11}$/.test(s);
+        if (!ticker && looksLikeTicker(name.toUpperCase())) {
+          ticker = name.toUpperCase();
+          if (!autoCat) autoCat = ticker.includes("-USD") ? "Crypto" : "Stocks";
+        }
+
+        // Otherwise resolve via Finnhub once
+        if (!ticker) {
+          try {
+            const url = `https://finnhub.io/api/v1/search?q=${encodeURIComponent(name)}&token=${FINNHUB_API_KEY}`;
+            const res = await fetch(url);
+            if (res.ok) {
+              const data = await res.json();
+              const hit = (data?.result || []).find(r => r.symbol && r.description);
+              if (hit) {
+                const desc = (hit.description || "").toUpperCase();
+                let sym = hit.symbol.toUpperCase();
+                const isCrypto =
+                  sym.includes("BINANCE:") || sym.includes("COINBASE:") || sym.includes("KRAKEN:") ||
+                  sym.endsWith("-USD") || sym.endsWith("USD") || sym.includes("USDT");
+                if (isCrypto) {
+                  sym = sym.replace(/^.*:/, "");
+                  if (sym.endsWith("USDT")) sym = sym.slice(0, -4) + "USD";
+                  if (!sym.includes("-") && sym.endsWith("USD")) sym = sym.replace("USD","-USD");
+                  autoCat = "Crypto";
+                } else if (desc.includes("ETF")) {
+                  autoCat = "ETF";
+                } else {
+                  autoCat = "Stocks";
+                }
+                ticker = sym;
+              }
+            }
+          } catch {}
+        }
+
+        if (!category || category === "Other") category = autoCat || category || "Stocks";
+
+        assets.push({ name, ticker, category, shares });
+        save(); await render();
+
+        nameEl.value = ""; sharesEl.value = "";
+        pendingSel = { ticker:"", category:"" };
+        nameEl.focus();
       });
-    })();
+    }
 
-    // === Add / Edit / Delete handlers ===
-    $("addBtn").addEventListener("click", () => {
-      const name = $("name").value.trim();
-      const ticker = ($("ticker").value || "").trim().toUpperCase();
-      const category = $("category").value;
-      const shares = Number(($("shares").value || "").replace(",", "."));
-      if (!name || isNaN(shares) || shares < 0) {
-        alert("Please enter a valid name and a non-negative number of shares.");
-        return;
-      }
-      assets.push({ name, ticker, category, shares });
-      save(); render();
-      $("name").value = ""; $("ticker").value = ""; $("shares").value = "";
-      $("name").focus();
-    });
-
-    $("tbody").addEventListener("click", (e) => {
-      const t = e.target;
-      const del = t.getAttribute("data-del");
-      const edit = t.getAttribute("data-edit");
-      if (del !== null) {
-        const i = Number(del);
-        if (confirm(`Delete "${assets[i].name}"?`)) { assets.splice(i, 1); save(); render(); }
-      }
-      if (edit !== null) {
-        const i = Number(edit);
-        const curr = assets[i];
-        const name = prompt("Asset name:", curr.name); if (name === null) return;
-        const tick = prompt("Ticker (e.g., AAPL or BTC-USD):", curr.ticker || ""); if (tick === null) return;
-        const cat = prompt("Category:", curr.category); if (cat === null) return;
-        const sh = prompt("Shares (decimal allowed):", String(curr.shares ?? 0)); if (sh === null) return;
-        const num = Number(String(sh).replace(",", "."));
-        if (isNaN(num) || num < 0) { alert("Invalid shares."); return; }
-        assets[i] = { name: name.trim(), ticker: (tick||"").trim().toUpperCase(), category: (cat||"Other").trim(), shares: num };
-        save(); render();
-      }
-    });
-
-    $("exportBtn").addEventListener("click", () => {
-      const blob = new Blob([JSON.stringify(assets, null, 2)], {type:"application/json"});
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob); a.download = "portfolio.json"; a.click();
-      URL.revokeObjectURL(a.href);
-    });
-    $("importFile").addEventListener("change", (e) => {
-      const file = e.target.files?.[0]; if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const data = JSON.parse(reader.result);
-          if (!Array.isArray(data)) throw new Error("Bad format");
-          assets = data.map(x => ({
-            name: String(x.name ?? ""),
-            ticker: String(x.ticker ?? "").toUpperCase(),
-            category: String(x.category ?? "Other"),
-            shares: Number(x.shares ?? 0)
-          }));
+    function wireTableHandlers(){
+      $("tbody").addEventListener("click", (e) => {
+        const t = e.target;
+        const del = t.getAttribute("data-del");
+        const edit = t.getAttribute("data-edit");
+        if (del !== null) {
+          const i = Number(del);
+          if (confirm(`Delete "${assets[i].name}"?`)) { assets.splice(i, 1); save(); render(); }
+        }
+        if (edit !== null) {
+          const i = Number(edit);
+          const curr = assets[i];
+          const name = prompt("Asset name:", curr.name); if (name === null) return;
+          const tick = prompt("Ticker (e.g., AAPL or BTC-USD):", curr.ticker || ""); if (tick === null) return;
+          const cat = prompt("Category:", curr.category); if (cat === null) return;
+          const sh = prompt("Shares (decimal allowed):", String(curr.shares ?? 0)); if (sh === null) return;
+          const num = Number(String(sh).replace(",", "."));
+          if (isNaN(num) || num < 0) { alert("Invalid shares."); return; }
+          assets[i] = { name: name.trim(), ticker: (tick||"").trim().toUpperCase(), category: (cat||"Other").trim(), shares: num };
           save(); render();
-        } catch { alert("Invalid JSON file."); }
-      };
-      reader.readAsText(file); e.target.value = "";
-    });
-    $("clearBtn").addEventListener("click", () => {
-      if (confirm("This will remove all assets on this device.")) { assets = []; save(); render(); }
-    });
+        }
+      });
+    }
 
-    // === Chart.js pie ===
+    function wireUtilityButtons(){
+      $("exportBtn").addEventListener("click", () => {
+        const blob = new Blob([JSON.stringify(assets, null, 2)], {type:"application/json"});
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob); a.download = "portfolio.json"; a.click();
+        URL.revokeObjectURL(a.href);
+      });
+      $("importFile").addEventListener("change", (e) => {
+        const file = e.target.files?.[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const data = JSON.parse(reader.result);
+            if (!Array.isArray(data)) throw new Error("Bad format");
+            assets = data.map(x => ({
+              name: String(x.name ?? ""),
+              ticker: String(x.ticker ?? "").toUpperCase(),
+              category: String(x.category ?? "Other"),
+              shares: Number(x.shares ?? 0)
+            }));
+            save(); render();
+          } catch { alert("Invalid JSON file."); }
+        };
+        reader.readAsText(file); e.target.value = "";
+      });
+      $("clearBtn").addEventListener("click", () => {
+        if (confirm("This will remove all assets on this device.")) { assets = []; save(); render(); }
+      });
+    }
+
+    /* =========================
+       CHART + RENDER
+    ========================== */
     let pieChart = null;
     function updatePie(labels, values) {
       const canvas = $("pie"); if (!canvas) return;
@@ -470,7 +543,6 @@
       });
     }
 
-    // === Render ===
     async function render() {
       const tb = $("tbody"); tb.innerHTML = "";
       await ensurePricesForAssets(assets);
@@ -493,8 +565,8 @@
           <td class="right">${price == null ? "-" : fmt(price)}</td>
           <td class="right">${fmt(value)}</td>
           <td class="right">
-            <button class="btn" data-edit="${i}">Edit</button>
-            <button class="btn" data-del="${i}">Delete</button>
+            <button class="btn" data-edit="${i}" type="button">Edit</button>
+            <button class="btn" data-del="${i}" type="button">Delete</button>
           </td>`;
         tb.appendChild(tr);
       }
@@ -509,14 +581,18 @@
       updatePie(Object.keys(byCat), Object.values(byCat));
     }
 
-    function escapeHtml(s) {
-      return String(s ?? "").replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-    }
-
-    // boot
-    load(); render();
-    // auto-refresh prices every 60s
-    setInterval(() => { render(); }, 60_000);
+    /* =========================
+       BOOT (wait for DOM)
+    ========================== */
+    document.addEventListener("DOMContentLoaded", () => {
+      setupAutocomplete();
+      wireAddHandler();
+      wireTableHandlers();
+      wireUtilityButtons();
+      load();
+      render();
+      setInterval(() => { render(); }, 60_000); // auto-refresh prices
+    });
   </script>
 </body>
 </html>
