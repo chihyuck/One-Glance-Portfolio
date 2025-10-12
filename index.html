@@ -127,74 +127,67 @@
       <!-- Input Card -->
       <div class="card">
         <h2 style="margin:0 0 12px;font-size:18px">Add Asset</h2>
-        <div class="row" style="margin-bottom:12px">
-          <div>
-           <label for="name">Asset</label>
-<div class="autocomplete-wrap">
-  <input id="name" placeholder="e.g., Apple" autocomplete="off" />
-  <div id="suggestions" class="suggest-box"></div>
-</div>
-          </div>
-          <div>
-            <label for="category">Category</label>
-            <select id="category">
-              <option value="Stocks">Stocks</option>
-              <option value="Bonds">Bonds</option>
-              <option value="Cash">Cash</option>
-              <option value="Crypto">Crypto</option>
-              <option value="Real Estate">Real Estate</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
-          <div>
-            <label for="value">Value</label>
-            <input id="value" type="number" min="0" step="0.01" placeholder="e.g., 1500.00" />
-          </div>
-          <div style="display:flex; align-items:end">
-            <button class="btn primary" id="addBtn" title="Add asset">＋ Add</button>
-          </div>
-        </div>
-        <div class="tools">
-          <button class="btn" id="exportBtn">Export JSON</button>
-          <label class="pill" for="importFile" style="cursor:pointer">
-            Import JSON <input id="importFile" type="file" accept="application/json" style="display:none">
-          </label>
-          <button class="btn" id="clearBtn">Clear All</button>
-        </div>
-        <div class="footer">Tip: Export regularly so you can restore your data anywhere.</div>
-      </div>
-
-      <!-- Chart Card -->
-      <div class="card">
-        <h2 style="margin:0 0 12px;font-size:18px">Allocation</h2>
-        <canvas id="pie" height="220"></canvas>
-        <div style="margin-top:10px" class="muted">Pie shows totals grouped by category.</div>
-      </div>
-    </div>
-
-    <!-- Table Card -->
-    <div class="card" style="margin-top:16px">
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px">
-        <h2 style="margin:0;font-size:18px">Assets</h2>
-        <div class="pill">Total: <span id="total">$0.00</span></div>
-      </div>
-      <div style="overflow:auto">
-        <table id="assetTable">
-          <thead>
-            <tr>
-              <th>Asset</th>
-              <th>Category</th>
-              <th class="right">Value</th>
-              <th class="right">Actions</th>
-            </tr>
-          </thead>
-          <tbody id="tbody"></tbody>
-        </table>
-      </div>
+    <div class="row" style="margin-bottom:12px">
+  <div>
+    <label for="name">Asset</label>
+    <div class="autocomplete-wrap">
+      <input id="name" placeholder="e.g., Apple" autocomplete="off" />
+      <div id="suggestions" class="suggest-box"></div>
     </div>
   </div>
+  <div>
+    <label for="ticker">Ticker</label>
+    <input id="ticker" placeholder="e.g., AAPL" />
+  </div>
+  <div>
+    <label for="category">Category</label>
+    <select id="category">
+      <option value="Stocks">Stocks</option>
+      <option value="ETF">ETF</option>
+      <option value="Bonds">Bonds</option>
+      <option value="Cash">Cash</option>
+      <option value="Crypto">Crypto</option>
+      <option value="Real Estate">Real Estate</option>
+      <option value="Other">Other</option>
+    </select>
+  </div>
+  <div>
+    <label for="shares">Shares</label>
+    <input id="shares" type="number" min="0" step="0.000001" placeholder="e.g., 1.25" />
+  </div>
+  <div style="display:flex; align-items:end">
+    <button class="btn primary" id="addBtn" title="Add asset">＋ Add</button>
+  </div>
+</div>
 
+<!-- === Portfolio Table === -->
+<div class="card" style="margin-top:20px">
+  <h2>Your Assets</h2>
+  <p class="muted">Pie shows market value totals (Shares × Price) grouped by category.</p>
+  <table id="assetTable" style="width:100%; border-collapse:collapse; margin-top:12px">
+    <thead>
+      <tr>
+        <th>Asset</th>
+        <th class="muted">Ticker</th>
+        <th class="muted">Category</th>
+        <th class="right">Shares</th>
+        <th class="right">Price</th>
+        <th class="right">Value</th>
+        <th class="right">Actions</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <div style="text-align:right; margin-top:8px">
+    <strong>Total: </strong><span id="total">$0.00</span>
+  </div>
+</div>
+        
   <script>
+// === LIVE PRICE CONFIG ===
+const FINNHUB_API_KEY = "d3lgk5pr01qq28endrngd3lgk5pr01qq28endro0";   
+const PRICE_SOURCE = "finnhub";                
+   
     const STORE_KEY = "my_portfolio_assets_v1";
     const $ = (id) => document.getElementById(id);
     const fmt = (n) => n.toLocaleString(undefined, {style:"currency", currency:"USD"});
@@ -214,54 +207,76 @@
       localStorage.setItem(STORE_KEY, JSON.stringify(assets));
     }
 
-    function render() {
-      // table
-      const tb = $("tbody");
-      tb.innerHTML = "";
-      let total = 0;
-      assets.forEach((a, i) => {
-        total += Number(a.value) || 0;
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${escapeHtml(a.name)}</td>
-          <td class="muted">${escapeHtml(a.category)}</td>
-          <td class="right">${fmt(Number(a.value)||0)}</td>
-          <td class="right">
-            <button class="btn" data-edit="${i}">Edit</button>
-            <button class="btn" data-del="${i}">Delete</button>
-          </td>`;
-        tb.appendChild(tr);
-      });
-      $("total").textContent = fmt(total);
+async function render() {
+  // clear and prepare table
+  const tb = $("tbody");
+  tb.innerHTML = "";
 
-      // chart
-      const byCat = {};
-      assets.forEach(a => {
-        const v = Number(a.value) || 0;
-        byCat[a.category] = (byCat[a.category] || 0) + v;
-      });
-      const labels = Object.keys(byCat);
-      const data = Object.values(byCat);
-      updatePie(labels, data);
-    }
+  // Make sure we have fresh prices for all unique assets
+  await ensurePricesForAssets(assets);
+
+  let total = 0;
+
+  // Build rows
+  for (let i = 0; i < assets.length; i++) {
+    const a = assets[i];
+    const ticker = (a.ticker || "").toUpperCase();
+    const price = await fetchPriceForAsset(a); // live price from Finnhub/Coinbase
+    const shares = Number(a.shares) || 0;
+    const value = shares * (Number(price) || 0);
+    total += value;
+
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${escapeHtml(a.name)}</td>
+      <td class="muted">${escapeHtml(ticker)}</td>
+      <td class="muted">${escapeHtml(a.category)}</td>
+      <td class="right">${shares.toLocaleString()}</td>
+      <td class="right">${price == null ? "-" : fmt(price)}</td>
+      <td class="right">${fmt(value)}</td>
+      <td class="right">
+        <button class="btn" data-edit="${i}">Edit</button>
+        <button class="btn" data-del="${i}">Delete</button>
+      </td>`;
+    tb.appendChild(tr);
+  }
+
+  // Update total
+  $("total").textContent = fmt(total);
+
+  // --- Recompute and redraw pie chart ---
+  const byCat = {};
+  for (const a of assets) {
+    const p = await fetchPriceForAsset(a) || 0;
+    const val = (Number(a.shares) || 0) * p;
+    byCat[a.category] = (byCat[a.category] || 0) + val;
+  }
+
+  const labels = Object.keys(byCat);
+  const data = Object.values(byCat);
+  updatePie(labels, data);
+}
+
 
     function escapeHtml(s) {
       return String(s ?? "").replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
     }
 
-    $("addBtn").addEventListener("click", () => {
-      const name = $("name").value.trim();
-      const category = $("category").value;
-      const value = Number($("value").value);
-      if (!name || isNaN(value) || value < 0) {
-        alert("Please enter a valid name and a non-negative value.");
-        return;
-      }
-      assets.push({ name, category, value });
-      save(); render();
-      $("name").value = ""; $("value").value = "";
-      $("name").focus();
-    });
+   $("addBtn").addEventListener("click", () => {
+  const name = $("name").value.trim();
+  const ticker = ($("ticker").value || "").trim().toUpperCase();
+  const category = $("category").value;
+  const shares = Number(($("shares").value || "").replace(",", "."));
+  if (!name || isNaN(shares) || shares < 0) {
+    alert("Please enter a valid name and a non-negative number of shares.");
+    return;
+  }
+  assets.push({ name, ticker, category, shares });
+  save(); render();
+  $("name").value = ""; $("ticker").value = ""; $("shares").value = "";
+  $("name").focus();
+});
+
 
     $("tbody").addEventListener("click", (e) => {
       const t = e.target;
@@ -382,104 +397,35 @@ const POPULAR_ASSETS = [
   { name:"Vanguard S&P 500 ETF", ticker:"VOO", category:"Stocks", logo:"https://logo.clearbit.com/vanguard.com" },
 ];
 
+/* === AUTOCOMPLETE: Stocks + ETFs + Crypto (Finnhub + logos) === */
 (function setupAutocomplete(){
   const nameInput = document.getElementById("name");
   const box = document.getElementById("suggestions");
   const catSelect = document.getElementById("category");
+  const tickerInput = document.getElementById("ticker");
+
   let activeIndex = -1;
   let currentItems = [];
+  let debounceTimer = null;
+
+  const searchCache = Object.create(null);   // query -> results
+  const profileCache = Object.create(null);  // ticker -> { logo, weburl, name }
+  const issuerDomains = [
+    ["Vanguard", "vanguard.com"],
+    ["iShares", "ishares.com"],
+    ["BlackRock", "blackrock.com"],
+    ["SPDR", "ssga.com"],
+    ["Invesco", "invesco.com"],
+    ["Schwab", "schwab.com"],
+    ["Fidelity", "fidelity.com"],
+    ["VanEck", "vaneck.com"],
+    ["ARK", "ark-funds.com"],
+  ];
 
   function initials(txt){
     return (txt||"").split(/\s+/).filter(Boolean).slice(0,2).map(s=>s[0]).join("").toUpperCase();
   }
-
-  function render(items){
-    box.innerHTML = "";
-    activeIndex = -1;
-    currentItems = items;
-
-    if (!items.length) { box.style.display = "none"; return; }
-    items.forEach((it, i) => {
-      const row = document.createElement("div");
-      row.className = "suggest-item";
-      row.setAttribute("data-idx", i);
-      row.title = `${it.name}${it.ticker ? " (" + it.ticker + ")" : ""}`;
-
-      const img = document.createElement("img");
-      img.className = "suggest-logo";
-      img.src = it.logo;
-      img.alt = "";
-      img.onerror = () => {
-        img.replaceWith(Object.assign(document.createElement("div"), {
-          className:"suggest-logo", textContent: initials(it.name)
-        }));
-      };
-
-      const name = document.createElement("div");
-      name.className = "suggest-name";
-      name.textContent = it.name;
-
-      const meta = document.createElement("div");
-      meta.className = "suggest-meta";
-      meta.textContent = it.ticker || it.category || "";
-
-      row.appendChild(img);
-      row.appendChild(name);
-      row.appendChild(meta);
-
-      row.addEventListener("mousedown", (e) => { // mousedown to fire before input blur
-        e.preventDefault();
-        choose(i);
-      });
-
-      box.appendChild(row);
-    });
-    box.style.display = "block";
-  }
-
-  function filter(q){
-    q = (q||"").trim().toLowerCase();
-    if (!q) { render([]); return; }
-    const hits = POPULAR_ASSETS.filter(a =>
-      a.name.toLowerCase().includes(q) || (a.ticker||"").toLowerCase().includes(q)
-    ).slice(0, 12);
-    render(hits);
-  }
-
-  function choose(i){
-    const it = currentItems[i];
-    if (!it) return;
-    nameInput.value = it.name;       // fill name
-    if (it.category) catSelect.value = it.category; // set category
-    hide();
-  }
-
-  function hide(){ box.style.display = "none"; currentItems = []; activeIndex = -1; }
-
-  nameInput.addEventListener("input", () => filter(nameInput.value));
-
-  nameInput.addEventListener("keydown", (e) => {
-    const visible = box.style.display === "block";
-    if (!visible) return;
-
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      activeIndex = Math.min(activeIndex + 1, currentItems.length - 1);
-      updateActive();
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      activeIndex = Math.max(activeIndex - 1, 0);
-      updateActive();
-    } else if (e.key === "Enter") {
-      if (activeIndex >= 0) {
-        e.preventDefault();
-        choose(activeIndex);
-      }
-    } else if (e.key === "Escape") {
-      hide();
-    }
-  });
-
+  function clearAndHide(){ box.innerHTML=""; box.style.display="none"; currentItems=[]; activeIndex=-1; }
   function updateActive(){
     const rows = Array.from(box.querySelectorAll(".suggest-item"));
     rows.forEach((r, i) => r.classList.toggle("active", i === activeIndex));
@@ -487,15 +433,207 @@ const POPULAR_ASSETS = [
     if (active) active.scrollIntoView({ block:"nearest" });
   }
 
+  function render(items){
+    box.innerHTML = "";
+    activeIndex = -1;
+    currentItems = items;
+    if (!items.length) { clearAndHide(); return; }
+
+    for (let i=0;i<items.length;i++){
+      const it = items[i];
+      const row = document.createElement("div");
+      row.className = "suggest-item";
+      row.setAttribute("data-idx", i);
+      row.title = `${it.name}${it.ticker ? " (" + it.ticker + ")" : ""}`;
+
+      const logoEl = document.createElement("img");
+      logoEl.className = "suggest-logo";
+      logoEl.src = it.logo || "";
+      logoEl.alt = "";
+      logoEl.onerror = () => {
+        const badge = document.createElement("div");
+        badge.className = "suggest-logo";
+        badge.textContent = initials(it.name);
+        logoEl.replaceWith(badge);
+      };
+
+      const nameEl = document.createElement("div");
+      nameEl.className = "suggest-name";
+      nameEl.textContent = it.name;
+
+      const metaEl = document.createElement("div");
+      metaEl.className = "suggest-meta";
+      metaEl.textContent = it.ticker || "";
+
+      row.appendChild(logoEl);
+      row.appendChild(nameEl);
+      row.appendChild(metaEl);
+
+      row.addEventListener("mousedown", (e) => { e.preventDefault(); choose(i); });
+      box.appendChild(row);
+    }
+    box.style.display = "block";
+  }
+
+  function choose(i){
+    const it = currentItems[i];
+    if (!it) return;
+    nameInput.value = it.name;
+    if (tickerInput) tickerInput.value = it.ticker || "";
+    if (it.category) catSelect.value = it.category;
+    clearAndHide();
+  }
+
+  // ---- Helpers (Finnhub + logos) ----
+  function detectCategoryFromResult(r){
+    const desc = (r.description || "").toUpperCase();
+    const sym  = (r.symbol || "").toUpperCase();
+
+    // Heuristic: crypto often has BINANCE:, COINBASE:, KRAKEN:, etc. or -USD in symbol
+    if (sym.includes("BINANCE:") || sym.includes("COINBASE:") || sym.includes("KRAKEN:")
+        || sym.endsWith("-USD") || sym.endsWith("USD") || sym.includes("USDT")) {
+      return "Crypto";
+    }
+    // ETFs often have “ETF” in description or well-known issuers
+    if (desc.includes("ETF") || issuerDomains.some(([k]) => desc.includes(k.toUpperCase()))) {
+      return "ETF";
+    }
+    return "Stocks";
+  }
+
+  function normalizeCryptoTicker(sym){
+    // Convert BINANCE:BTCUSDT -> BTC-USD; A:BTCUSD -> BTC-USD, etc.
+    let s = (sym||"").toUpperCase().replace(/^.*:/, ""); // drop exchange prefix
+    if (s.endsWith("USDT")) s = s.slice(0, -4) + "USD";
+    if (!s.includes("-") && s.endsWith("USD")) s = s.replace("USD", "-USD");
+    return s; // e.g., BTC-USD
+  }
+
+  function clearbitFromWeburl(weburl){
+    try {
+      if (!weburl) return "";
+      const u = new URL(weburl);
+      const host = u.hostname.replace(/^www\./, "");
+      return `https://logo.clearbit.com/${host}`;
+    } catch { return ""; }
+  }
+
+  async function finnhubSearch(query){
+    const q = (query||"").trim();
+    if (!q) return [];
+    if (searchCache[q]) return searchCache[q];
+
+    const url = `https://finnhub.io/api/v1/search?q=${encodeURIComponent(q)}&token=${FINNHUB_API_KEY}`;
+    const res = await fetch(url);
+    if (!res.ok) { searchCache[q] = []; return []; }
+    const data = await res.json(); // { result: [...] }
+    const raw = Array.isArray(data.result) ? data.result : [];
+
+    // Map to items; let category & ticker normalization happen here
+    const items = raw
+      .filter(r => r.symbol && r.description)
+      .slice(0, 12)
+      .map(r => {
+        const category = detectCategoryFromResult(r);
+        let ticker = r.symbol.toUpperCase();
+        if (category === "Crypto") {
+          ticker = normalizeCryptoTicker(ticker);
+        }
+        return {
+          name: r.description,
+          ticker,
+          category,
+          logo: "" // filled below
+        };
+      });
+
+    searchCache[q] = items;
+    return items;
+  }
+
+  async function finnhubProfile(ticker){
+    const t = (ticker||"").toUpperCase();
+    if (!t) return null;
+    if (profileCache[t]) return profileCache[t];
+
+    // For crypto, Finnhub profile2 won't help; skip to fallback
+    if (t.includes("-USD")) { profileCache[t] = null; return null; }
+
+    const url = `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(t)}&token=${FINNHUB_API_KEY}`;
+    const res = await fetch(url);
+    if (!res.ok) { profileCache[t] = null; return null; }
+    const data = await res.json();
+    const out = {
+      name: data.name || "",
+      weburl: data.weburl || "",
+      logo: data.logo || ""
+    };
+    profileCache[t] = out;
+    return out;
+  }
+
+  function inferIssuerDomain(name){
+    const hit = issuerDomains.find(([k]) => (name||"").toUpperCase().includes(k.toUpperCase()));
+    return hit ? hit[1] : "";
+  }
+
+  async function enrichWithLogos(items){
+    const head = items.slice(0, 8);
+    await Promise.all(head.map(async (it) => {
+      // 1) Try Finnhub profile for stocks/ETFs
+      let p = await finnhubProfile(it.ticker).catch(()=>null);
+      if (p && p.logo) { it.logo = p.logo; return; }
+      if (p && p.weburl) { it.logo = clearbitFromWeburl(p.weburl); if (it.logo) return; }
+
+      // 2) ETF issuer guess if no logo yet
+      if (it.category === "ETF" && !it.logo) {
+        const domain = inferIssuerDomain(it.name);
+        if (domain) it.logo = `https://logo.clearbit.com/${domain}`;
+      }
+
+      // 3) Crypto: default to Coinbase logo (generic), initials will show if blocked
+      if (it.category === "Crypto" && !it.logo) {
+        it.logo = "https://logo.clearbit.com/coinbase.com";
+      }
+    }));
+    return items;
+  }
+
+  async function runSearch(q){
+    let items = await finnhubSearch(q);
+    items = await enrichWithLogos(items);
+    render(items);
+  }
+
+  function onInput(){
+    const q = nameInput.value;
+    if (!q.trim()) { clearAndHide(); return; }
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => { runSearch(q); }, 250);
+  }
+
+  nameInput.addEventListener("input", onInput);
+
+  nameInput.addEventListener("keydown", (e) => {
+    const visible = box.style.display === "block";
+    if (!visible) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); activeIndex = Math.min(activeIndex+1, currentItems.length-1); updateActive(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); activeIndex = Math.max(activeIndex-1, 0); updateActive(); }
+    else if (e.key === "Enter") { if (activeIndex >= 0) { e.preventDefault(); choose(activeIndex); } }
+    else if (e.key === "Escape") { clearAndHide(); }
+  });
+
   document.addEventListener("click", (e) => {
-    if (!box.contains(e.target) && e.target !== nameInput) hide();
+    if (!box.contains(e.target) && e.target !== nameInput) clearAndHide();
   });
 })();
+
     // boot
     load(); render();
   </script>
 </body>
 </html>
+
 
 
 
