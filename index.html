@@ -144,8 +144,21 @@
   </div>
 
   <script>
+    // === CONFIG + DEBUG ===
+const FINNHUB_API_KEY = "d3lgk5pr01qq28endrngd3lgk5pr01qq28endro0"; // keep quotes
+let pendingSel = { ticker: "", category: "" }; // stores the last picked suggestion
+
+// show any JS error so we can see what's wrong
+window.addEventListener('error', e => {
+  console.log(e.error || e.message);
+  const m = document.createElement('div');
+  m.style.cssText = 'position:fixed;left:8px;bottom:8px;background:#111827;color:#fca5a5;border:1px solid #7f1d1d;padding:6px 8px;border-radius:8px;z-index:99999;max-width:90vw;font:12px/1.3 system-ui';
+  m.textContent = 'JS Error: ' + (e.message || e.error);
+  document.body.appendChild(m);
+});
+
     // === YOUR FINNHUB KEY ===
-    const FINNHUB_API_KEY = "d3lgk5pr01qq28endrngd3lgk5pr01qq28endro0"; // <-- put your real key in quotes
+    const FINNHUB_API_KEY = "d3lgk5pr01qq28endrngd3lgk5pr01qq28endro0"; 
     const PRICE_TTL_MS = 60 * 1000; // 1 minute cache
 
     // Utilities & storage
@@ -219,233 +232,228 @@
     }
 
     // === Autocomplete (Finnhub search + logos; ETFs & Crypto included) ===
-    (function setupAutocomplete(){
-      const nameInput = $("name");
-      const box = $("suggestions");
-      const catSelect = $("category");
+   /* === AUTOCOMPLETE (robust): Finnhub + fallback + clean ticker capture === */
+(function setupAutocomplete(){
+  const nameInput = document.getElementById("name");
+  const box = document.getElementById("suggestions");
+  const catSelect = document.getElementById("category");
 
-      let activeIndex = -1;
-      let currentItems = [];
-      let debounceTimer = null;
+  let activeIndex = -1;
+  let currentItems = [];
+  let debounceTimer = null;
 
-      const searchCache = Object.create(null);   // query -> items
-      const profileCache = Object.create(null);  // ticker -> { logo, weburl, name }
-      const issuerDomains = [
-        ["Vanguard","vanguard.com"],["iShares","ishares.com"],["BlackRock","blackrock.com"],["SPDR","ssga.com"],
-        ["Invesco","invesco.com"],["Schwab","schwab.com"],["Fidelity","fidelity.com"],["VanEck","vaneck.com"],["ARK","ark-funds.com"]
-      ];
+  const searchCache = Object.create(null);
+  const profileCache = Object.create(null);
 
-      // Track last picked suggestion (captures hidden ticker)
-      let pendingSel = { ticker:"", category:"" };
-      // expose for add handler
-      window.__pendingSel = pendingSel;
-      Object.defineProperty(window, "__pendingSel", {
-        get(){ return pendingSel; },
-        set(v){ pendingSel = v; }
+  // Local fallback items if API fails (ensures dropdown shows something)
+  const POPULAR_FALLBACK = [
+    { name:"Apple", ticker:"AAPL", category:"Stocks", logo:"https://logo.clearbit.com/apple.com" },
+    { name:"Amazon", ticker:"AMZN", category:"Stocks", logo:"https://logo.clearbit.com/amazon.com" },
+    { name:"NVIDIA", ticker:"NVDA", category:"Stocks", logo:"https://logo.clearbit.com/nvidia.com" },
+    { name:"Vanguard S&P 500 ETF", ticker:"VOO", category:"ETF", logo:"https://logo.clearbit.com/vanguard.com" },
+    { name:"SPDR S&P 500 ETF", ticker:"SPY", category:"ETF", logo:"https://logo.clearbit.com/ssga.com" },
+    { name:"Bitcoin", ticker:"BTC-USD", category:"Crypto", logo:"https://logo.clearbit.com/coinbase.com" },
+    { name:"Ethereum", ticker:"ETH-USD", category:"Crypto", logo:"https://logo.clearbit.com/coinbase.com" },
+  ];
+
+  function initials(txt){ return (txt||"").split(/\s+/).filter(Boolean).slice(0,2).map(s=>s[0]).join("").toUpperCase(); }
+  function clearAndHide(){ box.innerHTML=""; box.style.display="none"; currentItems=[]; activeIndex=-1; }
+
+  function render(items){
+    box.innerHTML=""; activeIndex=-1; currentItems = items;
+    if (!items.length){ clearAndHide(); return; }
+    items.forEach((it,i)=>{
+      const row = document.createElement("div");
+      row.className = "suggest-item";
+      row.setAttribute("data-idx", i);
+      row.title = `${it.name}${it.ticker ? " ("+it.ticker+")" : ""}`;
+
+      const logo = document.createElement("img");
+      logo.className = "suggest-logo"; logo.src = it.logo || ""; logo.alt="";
+      logo.onerror = () => { const b=document.createElement("div"); b.className="suggest-logo"; b.textContent=initials(it.name); logo.replaceWith(b); };
+
+      const nameEl = document.createElement("div"); nameEl.className="suggest-name"; nameEl.textContent = it.name;
+      const meta = document.createElement("div"); meta.className="suggest-meta"; meta.textContent = it.ticker || "";
+
+      row.appendChild(logo); row.appendChild(nameEl); row.appendChild(meta);
+      row.addEventListener("mousedown", (e)=>{ e.preventDefault(); choose(i); });
+      box.appendChild(row);
+    });
+    box.style.display="block";
+  }
+
+  function choose(i){
+    const it = currentItems[i]; if (!it) return;
+    nameInput.value = it.name;
+    pendingSel = { ticker: it.ticker || "", category: it.category || "" };   // <— capture ticker here
+    if (it.category) catSelect.value = it.category;
+    clearAndHide();
+  }
+
+  function normalizeCryptoTicker(sym){
+    let s = (sym||"").toUpperCase().replace(/^.*:/,"");
+    if (s.endsWith("USDT")) s = s.slice(0,-4)+"USD";
+    if (!s.includes("-") && s.endsWith("USD")) s = s.replace("USD","-USD");
+    return s;
+  }
+  function detectCategory(sym, desc){
+    const S = (sym||"").toUpperCase();
+    const D = (desc||"").toUpperCase();
+    if (S.includes("BINANCE:")||S.includes("COINBASE:")||S.includes("KRAKEN:")||S.endsWith("-USD")||S.endsWith("USD")||S.includes("USDT")) return "Crypto";
+    if (D.includes("ETF") || /(VANGUARD|ISHARES|SPDR|INVESCO|SCHWAB|FIDELITY|VANECK|ARK)/.test(D)) return "ETF";
+    return "Stocks";
+  }
+  function clearbitFromWeburl(weburl){
+    try{ if(!weburl) return ""; const u=new URL(weburl); return `https://logo.clearbit.com/${u.hostname.replace(/^www\./,"")}`; }catch{ return ""; }
+  }
+
+  async function finnhubProfile(ticker){
+    const t=(ticker||"").toUpperCase(); if(!t) return null;
+    if (profileCache[t]) return profileCache[t];
+    if (t.includes("-USD")) { profileCache[t]=null; return null; } // crypto: skip
+    const url = `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(t)}&token=${FINNHUB_API_KEY}`;
+    const res = await fetch(url);
+    if (!res.ok){ profileCache[t]=null; return null; }
+    const data = await res.json();
+    const out = { name:data?.name||"", weburl:data?.weburl||"", logo:data?.logo||"" };
+    profileCache[t]=out; return out;
+  }
+
+  async function finnhubSearch(q){
+    const query = (q||"").trim(); if(!query) return [];
+    if (searchCache[query]) return searchCache[query];
+
+    const url = `https://finnhub.io/api/v1/search?q=${encodeURIComponent(query)}&token=${FINNHUB_API_KEY}`;
+    let items = [];
+    try{
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("search failed");
+      const data = await res.json();
+      const raw = Array.isArray(data.result) ? data.result : [];
+      items = raw.filter(r=>r.symbol && r.description).slice(0,12).map(r=>{
+        let cat = detectCategory(r.symbol, r.description);
+        let t = r.symbol.toUpperCase();
+        if (cat==="Crypto") t = normalizeCryptoTicker(t);
+        return { name:r.description, ticker:t, category:cat, logo:"" };
       });
 
-      function initials(txt){ return (txt||"").split(/\s+/).filter(Boolean).slice(0,2).map(s=>s[0]).join("").toUpperCase(); }
-      function clearAndHide(){ box.innerHTML=""; box.style.display="none"; currentItems=[]; activeIndex=-1; }
-      function updateActive(){
-        const rows = Array.from(box.querySelectorAll(".suggest-item"));
-        rows.forEach((r, i) => r.classList.toggle("active", i === activeIndex));
-        const active = rows[activeIndex];
-        if (active) active.scrollIntoView({ block:"nearest" });
-      }
-      function detectCategoryFromResult(r){
-        const desc = (r.description || "").toUpperCase();
-        const sym  = (r.symbol || "").toUpperCase();
-        if (sym.includes("BINANCE:") || sym.includes("COINBASE:") || sym.includes("KRAKEN:")
-            || sym.endsWith("-USD") || sym.endsWith("USD") || sym.includes("USDT")) return "Crypto";
-        if (desc.includes("ETF") || ["VANGUARD","ISHARES","SPDR","INVESCO","SCHWAB","FIDELITY","VANECK","ARK"].some(k=>desc.includes(k))) return "ETF";
-        return "Stocks";
-      }
-      function normalizeCryptoTicker(sym){
-        let s = (sym||"").toUpperCase().replace(/^.*:/, "");
-        if (s.endsWith("USDT")) s = s.slice(0, -4) + "USD";
-        if (!s.includes("-") && s.endsWith("USD")) s = s.replace("USD", "-USD");
-        return s; // e.g., BTC-USD
-      }
-      function clearbitFromWeburl(weburl){
-        try { if (!weburl) return ""; const u = new URL(weburl); return `https://logo.clearbit.com/${u.hostname.replace(/^www\./,"")}`; }
-        catch { return ""; }
-      }
+      // Enrich top few with logos
+      const head = items.slice(0,8);
+      await Promise.all(head.map(async (it)=>{
+        const p = await finnhubProfile(it.ticker).catch(()=>null);
+        if (p?.logo) it.logo = p.logo;
+        else if (p?.weburl){ const l=clearbitFromWeburl(p.weburl); if(l) it.logo=l; }
+        if (!it.logo && it.category==="ETF") it.logo="https://logo.clearbit.com/vanguard.com";
+        if (!it.logo && it.category==="Crypto") it.logo="https://logo.clearbit.com/coinbase.com";
+      }));
+    }catch{
+      // Fallback: local list filter
+      const ql = query.toLowerCase();
+      items = POPULAR_FALLBACK.filter(x =>
+        x.name.toLowerCase().includes(ql) || (x.ticker||"").toLowerCase().includes(ql)
+      ).slice(0,8);
+    }
+    searchCache[query]=items;
+    return items;
+  }
 
-      async function finnhubSearch(query){
-        const q = (query||"").trim();
-        if (!q) return [];
-        if (searchCache[q]) return searchCache[q];
-        const url = `https://finnhub.io/api/v1/search?q=${encodeURIComponent(q)}&token=${FINNHUB_API_KEY}`;
-        const res = await fetch(url);
-        if (!res.ok) { searchCache[q] = []; return []; }
-        const data = await res.json();
-        const raw = Array.isArray(data.result) ? data.result : [];
-        const items = raw
-          .filter(r => r.symbol && r.description)
-          .slice(0, 12)
-          .map(r => {
-            const category = detectCategoryFromResult(r);
-            let ticker = r.symbol.toUpperCase();
-            if (category === "Crypto") ticker = normalizeCryptoTicker(ticker);
-            return { name: r.description, ticker, category, logo: "" };
-          });
-        searchCache[q] = items;
-        return items;
-      }
+  function onInput(){
+    const q = nameInput.value;
+    if (!q.trim()){ clearAndHide(); return; }
+    pendingSel = { ticker:"", category:"" }; // typing cancels previous pick
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(async()=>{ render(await finnhubSearch(q)); }, 250);
+  }
 
-      async function finnhubProfile(ticker){
-        const t = (ticker||"").toUpperCase();
-        if (!t) return null;
-        if (profileCache[t]) return profileCache[t];
-        if (t.includes("-USD")) { profileCache[t] = null; return null; } // crypto skip
-        const url = `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(t)}&token=${FINNHUB_API_KEY}`;
-        const res = await fetch(url);
-        if (!res.ok) { profileCache[t] = null; return null; }
-        const data = await res.json();
-        const out = { name: data?.name || "", weburl: data?.weburl || "", logo: data?.logo || "" };
-        profileCache[t] = out;
-        return out;
-      }
+  nameInput.addEventListener("input", onInput);
+  nameInput.addEventListener("keydown", (e)=>{
+    const visible = box.style.display==="block"; if(!visible) return;
+    if (e.key==="ArrowDown"){ e.preventDefault(); activeIndex=Math.min(activeIndex+1,currentItems.length-1); }
+    else if (e.key==="ArrowUp"){ e.preventDefault(); activeIndex=Math.max(activeIndex-1,0); }
+    else if (e.key==="Enter"){ if(activeIndex>=0){ e.preventDefault(); choose(activeIndex); } }
+    else if (e.key==="Escape"){ clearAndHide(); }
+    // highlight
+    const rows = Array.from(box.querySelectorAll(".suggest-item"));
+    rows.forEach((r,i)=>r.classList.toggle("active", i===activeIndex));
+    const ac = rows[activeIndex]; if (ac) ac.scrollIntoView({block:"nearest"});
+  });
 
-      function inferIssuerDomain(name){
-        const hit = issuerDomains.find(([k]) => (name||"").toUpperCase().includes(k.toUpperCase()));
-        return hit ? hit[1] : "";
-      }
-
-      async function enrichWithLogos(items){
-        const head = items.slice(0, 8);
-        await Promise.all(head.map(async (it) => {
-          let p = await finnhubProfile(it.ticker).catch(()=>null);
-          if (p?.logo) { it.logo = p.logo; return; }
-          if (p?.weburl) { const l = clearbitFromWeburl(p.weburl); if (l) { it.logo = l; return; } }
-          if (it.category === "ETF" && !it.logo) {
-            const domain = inferIssuerDomain(it.name); if (domain) it.logo = `https://logo.clearbit.com/${domain}`;
-          }
-          if (it.category === "Crypto" && !it.logo) { it.logo = "https://logo.clearbit.com/coinbase.com"; }
-        }));
-        return items;
-      }
-
-      function renderSuggestions(items){
-        box.innerHTML = ""; activeIndex = -1; currentItems = items;
-        if (!items.length) { clearAndHide(); return; }
-        for (let i=0;i<items.length;i++){
-          const it = items[i];
-          const row = document.createElement("div");
-          row.className = "suggest-item";
-          row.setAttribute("data-idx", i);
-          row.title = `${it.name}${it.ticker ? " (" + it.ticker + ")" : ""}`;
-
-          const logoEl = document.createElement("img");
-          logoEl.className = "suggest-logo"; logoEl.src = it.logo || ""; logoEl.alt = "";
-          logoEl.onerror = () => {
-            const badge = document.createElement("div"); badge.className = "suggest-logo";
-            badge.textContent = initials(it.name); logoEl.replaceWith(badge);
-          };
-
-          const nameEl = document.createElement("div"); nameEl.className = "suggest-name"; nameEl.textContent = it.name;
-          const metaEl = document.createElement("div"); metaEl.className = "suggest-meta"; metaEl.textContent = it.ticker || "";
-
-          row.appendChild(logoEl); row.appendChild(nameEl); row.appendChild(metaEl);
-          row.addEventListener("mousedown", (e) => { e.preventDefault(); choose(i); });
-          box.appendChild(row);
-        }
-        box.style.display = "block";
-      }
-
-      function choose(i){
-        const it = currentItems[i]; if (!it) return;
-        $("name").value = it.name;
-        window.__pendingSel = { ticker: it.ticker || "", category: it.category || "" };
-        if (it.category) $("category").value = it.category;
-        clearAndHide();
-      }
-
-      nameInput.addEventListener("input", () => { window.__pendingSel = { ticker:"", category:"" }; });
-      nameInput.addEventListener("keydown", (e) => {
-        const visible = box.style.display === "block"; if (!visible) return;
-        if (e.key === "ArrowDown") { e.preventDefault(); activeIndex = Math.min(activeIndex+1, currentItems.length-1); updateActive(); }
-        else if (e.key === "ArrowUp") { e.preventDefault(); activeIndex = Math.max(activeIndex-1, 0); updateActive(); }
-        else if (e.key === "Enter") { if (activeIndex >= 0) { e.preventDefault(); choose(activeIndex); } }
-        else if (e.key === "Escape") { clearAndHide(); }
-      });
-
-      async function runSearch(q){
-        let items = await finnhubSearch(q);
-        items = await enrichWithLogos(items);
-        renderSuggestions(items);
-      }
-      let debounceTimer=null;
-      nameInput.addEventListener("input", () => {
-        const q = nameInput.value;
-        if (!q.trim()) { clearAndHide(); return; }
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => runSearch(q), 250);
-      });
-
-      document.addEventListener("click", (e) => {
-        if (!box.contains(e.target) && e.target !== nameInput) clearAndHide();
-      });
-    })();
+  document.addEventListener("click", (e)=>{ if (!box.contains(e.target) && e.target !== nameInput) clearAndHide(); });
+})();
 
     // === Add / Edit / Delete handlers ===
-    $("addBtn").addEventListener("click", async () => {
-      const name = $("name").value.trim();
-      const shares = Number(($("shares").value || "").replace(",", "."));
-      let category = $("category").value;
+// Add button: resolve a ticker (hidden) and save the asset
+$("addBtn").addEventListener("click", async () => {
+  // 1) Read inputs
+  const nameEl = $("name");
+  const sharesEl = $("shares");
+  const catEl = $("category");
 
-      if (!name || isNaN(shares) || shares < 0) {
-        alert("Please enter a valid name and a non-negative number of shares.");
-        return;
-      }
+  const name = (nameEl.value || "").trim();
+  const shares = Number((sharesEl.value || "").replace(",", "."));
+  let category = catEl.value;
 
-      // use pending selection if available
-      let { ticker, category: autoCat } = (window.__pendingSel || { ticker:"", category:"" });
-      ticker = (ticker || "").toUpperCase();
+  // 2) Basic validation
+  if (!name || isNaN(shares) || shares < 0) {
+    alert("Please enter a valid name and a non-negative number of shares.");
+    return;
+  }
 
-      // If user typed a symbol directly (AAPL / BTC-USD)
-      const looksLikeTicker = (s) => /^[A-Z][A-Z0-9.\-]{0,11}$/.test(s);
-      if (!ticker && looksLikeTicker(name.toUpperCase())) {
-        ticker = name.toUpperCase();
-        if (!autoCat) autoCat = ticker.includes("-USD") ? "Crypto" : "Stocks";
-      }
+  // 3) Figure out the ticker (we need it to fetch a live price)
+  let { ticker, category: autoCat } = pendingSel || { ticker: "", category: "" };
+  ticker = (ticker || "").toUpperCase();
 
-      // Otherwise, search Finnhub once to resolve a symbol from the name
-      if (!ticker) {
-        try {
-          const url = `https://finnhub.io/api/v1/search?q=${encodeURIComponent(name)}&token=${FINNHUB_API_KEY}`;
-          const res = await fetch(url);
-          if (res.ok) {
-            const data = await res.json();
-            const hit = (data?.result || []).find(r => r.symbol && r.description);
-            if (hit) {
-              const desc = (hit.description || "").toUpperCase();
-              let sym = hit.symbol.toUpperCase();
-              const isCrypto =
-                sym.includes("BINANCE:") || sym.includes("COINBASE:") || sym.includes("KRAKEN:") ||
-                sym.endsWith("-USD") || sym.endsWith("USD") || sym.includes("USDT");
-              if (isCrypto) {
-                sym = sym.replace(/^.*:/, "");
-                if (sym.endsWith("USDT")) sym = sym.slice(0, -4) + "USD";
-                if (!sym.includes("-") && sym.endsWith("USD")) sym = sym.replace("USD", "-USD");
-                autoCat = "Crypto";
-              } else if (desc.includes("ETF")) { autoCat = "ETF"; }
-              else { autoCat = "Stocks"; }
-              ticker = sym;
-            }
+  // 4) If user typed a ticker directly (e.g., AAPL, BTC-USD)
+  const looksLikeTicker = (s) => /^[A-Z][A-Z0-9.\-]{0,11}$/.test(s);
+  if (!ticker && looksLikeTicker(name.toUpperCase())) {
+    ticker = name.toUpperCase();
+    if (!autoCat) autoCat = ticker.includes("-USD") ? "Crypto" : "Stocks";
+  }
+
+  // 5) If still no ticker, try Finnhub once
+  if (!ticker) {
+    try {
+      const url = `https://finnhub.io/api/v1/search?q=${encodeURIComponent(name)}&token=${FINNHUB_API_KEY}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        const hit = (data?.result || []).find(r => r.symbol && r.description);
+        if (hit) {
+          const desc = (hit.description || "").toUpperCase();
+          let sym = hit.symbol.toUpperCase();
+          const isCrypto =
+            sym.includes("BINANCE:") || sym.includes("COINBASE:") || sym.includes("KRAKEN:") ||
+            sym.endsWith("-USD") || sym.endsWith("USD") || sym.includes("USDT");
+          if (isCrypto) {
+            sym = sym.replace(/^.*:/, "");
+            if (sym.endsWith("USDT")) sym = sym.slice(0, -4) + "USD";
+            if (!sym.includes("-") && sym.endsWith("USD")) sym = sym.replace("USD","-USD");
+            autoCat = "Crypto";
+          } else if (desc.includes("ETF")) {
+            autoCat = "ETF";
+          } else {
+            autoCat = "Stocks";
           }
-        } catch {}
+          ticker = sym;
+        }
       }
+    } catch {}
+  }
 
-      if (!category || category === "Other") category = autoCat || category || "Stocks";
+  // 6) Final category: prefer auto-detected over "Other"
+  if (!category || category === "Other") category = autoCat || category || "Stocks";
 
-      assets.push({ name, ticker, category, shares });
-      save(); await render();
+  // 7) Save
+  assets.push({ name, ticker, category, shares });
+  save(); await render();
 
-      $("name").value = ""; $("shares").value = "";
-      window.__pendingSel = { ticker:"", category:"" };
-      $("name").focus();
-    });
+  // 8) Reset form
+  nameEl.value = "";
+  sharesEl.value = "";
+  pendingSel = { ticker: "", category: "" };
+  nameEl.focus();
+});
+
 
     $("tbody").addEventListener("click", (e) => {
       const t = e.target;
@@ -568,3 +576,4 @@
   </script>
 </body>
 </html>
+
