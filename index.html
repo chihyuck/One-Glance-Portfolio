@@ -208,7 +208,7 @@
       if (hit && (now - hit.ts) < PRICE_TTL_MS) return hit.price;
 
       let price = null;
-      if (cat === "CRYPTO" || t.includes("-USD")) {
+      if (cat === "Crypto" || t.includes("-USD")) {
         price = await fetchPriceCrypto(t).catch(()=>null);
       } else {
         price = await fetchPriceStocksEtf(t).catch(()=>null);
@@ -533,6 +533,7 @@ $("name").addEventListener("input", () => {
   </script>
 </body>
 </html>
+
 
 
 
